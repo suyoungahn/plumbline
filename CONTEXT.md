@@ -59,6 +59,12 @@ the finite channels underfill.
 
 ## Campaign flow
 
+**Onboarding a client**
+A client is created with its category, retail partners and a contact, and gets its
+first campaign straight away. A new campaign starts as a Draft: basics, a channel mix
+(retail media, full funnel or blank) and a weekly spend pattern (even, front- or
+back-loaded). Until its flight starts, every line reads Not started.
+
 **Media plan**
 The brief plus one line item per buy: channel, partner, tactic, targeting, KPI, buy
 type (CPM, CPC, flat), net rate and net budget. Estimated impressions are budget ÷ CPM

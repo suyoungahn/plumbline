@@ -2,7 +2,7 @@
   import { decisionCost } from '$lib/money';
   import { base } from '$app/paths';
   import { onMount } from 'svelte';
-  import { RECORD_IDS, records } from '$lib/mediaplan/store.svelte';
+  import { campaignIds, records } from '$lib/mediaplan/store.svelte';
   import { RULING_LABEL } from '$lib/mediaplan/decisions';
   import { shortDate } from '$lib/mediaplan/calc';
 
@@ -14,7 +14,7 @@
 
   // Every ruling across every campaign, newest first.
   const all = $derived(
-    RECORD_IDS.flatMap((id) => records[id].decisions.map((d) => ({ ...d, campaignId: id, campaign: records[id].plan.campaign }))).sort(
+    campaignIds().flatMap((id) => records[id].decisions.map((d) => ({ ...d, campaignId: id, campaign: records[id].plan.campaign }))).sort(
       (x, y) => y.date.localeCompare(x.date) || x.campaign.localeCompare(y.campaign)
     )
   );

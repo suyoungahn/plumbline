@@ -1,12 +1,12 @@
 <script lang="ts">
   import { base } from '$app/paths';
   import { goto } from '$app/navigation';
-  import { RECORD_IDS, records, resetDemo, settings } from '$lib/mediaplan/store.svelte';
+  import { campaignIds, records, resetDemo, settings } from '$lib/mediaplan/store.svelte';
   import { ACTION_TYPES, MIN_AGREEMENT, MIN_RULINGS, trackRecord } from '$lib/mediaplan/autonomy';
 
   // Team settings: learning mode, which kinds of change may apply on their own
   // (each unlocked by its approval record), and demo controls.
-  const all = $derived(RECORD_IDS.flatMap((id) => records[id].decisions));
+  const all = $derived(campaignIds().flatMap((id) => records[id].decisions));
   const groups = ['Campaign and pacing', 'Search terms'] as const;
   const autoCount = $derived(ACTION_TYPES.filter((a) => settings.autonomy[a.id] === 'auto').length);
 </script>

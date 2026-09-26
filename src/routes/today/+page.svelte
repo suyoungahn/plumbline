@@ -5,7 +5,7 @@
   import { decisionCost } from '$lib/money';
   import { MANAGER } from '$lib/portfolio';
   import { campaignById } from '$lib/scenario/campaigns';
-  import { RECORD_IDS, records, settings } from '$lib/mediaplan/store.svelte';
+  import { campaignIds, records, settings } from '$lib/mediaplan/store.svelte';
   import { localSuggestions } from '$lib/mediaplan/pacing-jev';
   import { lineName, paceAll } from '$lib/mediaplan/calc';
   import { band, campaignEntry, campaignKey, pacingEntry, pacingKey, pacingWhy, remove, RULING_LABEL, upsert } from '$lib/mediaplan/decisions';
@@ -59,7 +59,7 @@
   );
 
   const pacingGroups = $derived(
-    RECORD_IDS.filter((id) => !campaignById(id))
+    campaignIds().filter((id) => !campaignById(id))
       .map((id) => {
         const rec = records[id];
         const t = paceAll(rec.plan, rec.pacing);

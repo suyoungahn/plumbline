@@ -17,8 +17,13 @@ badged with its provenance.
 
 ## How it's organised
 
-Four places: **Inbox** (everything that needs a person, across all campaigns),
-**Campaigns** (one sheet-like row per campaign), **Clients**, and the **Decision log**.
+Five places: **Inbox** (everything that needs a person, across all campaigns),
+**Campaigns** (one sheet-like row per campaign), **Clients**, **History** and **Settings**.
+
+**New client** (Clients) captures the name, category, retail partners and contact, then
+opens **New campaign**: three steps (basics; channels from a template or blank; the
+weekly spend pattern) that create a draft with its flowchart, ready to finish on the
+Plan tab. Created clients and campaigns are kept in the browser, like other edits.
 
 Every campaign opens the same workspace, with tabs in the order the work happens:
 
