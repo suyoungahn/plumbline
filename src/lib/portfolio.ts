@@ -3,7 +3,7 @@ export type Market = 'CA';
 export type ClientId = 'mccain' | 'mapleleaf' | 'olddutch' | 'agropur' | 'kruger' | 'timhortons' | 'loblaw';
 
 export const MANAGER = {
-  name: 'Dana Whitfield',
+  name: 'Suyoung Ahn',
   role: 'Campaign Manager, Retail Media',
   agency: 'Northfield Media',
   bookUsedToNeed: 3
