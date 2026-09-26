@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { decisionCost } from '$lib/money';
 
   import type { JevDelta, JevMeta, JevOutcome, JevRaw, JevStep } from './jev-panel';
 
@@ -77,7 +78,7 @@
 
   <footer>
     <span>{meta.latencyMs || '—'}ms</span>
-    <span>${meta.costUsd.toFixed(6)}</span>
+    <span>{decisionCost(meta.costUsd)}</span>
     {#if meta.model}<span class="mdl">{meta.model}</span>{/if}
     <button onclick={() => (open = !open)}>{open ? 'Hide' : 'Show'} exactly what Jev was asked</button>
   </footer>

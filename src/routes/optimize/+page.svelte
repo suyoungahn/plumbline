@@ -40,14 +40,14 @@
 <div class="page">
   <div class="topline">
     <div>
-      <nav class="crumbs"><a href={`${base}/campaign/danone-oikos-protein`}>← Danone Oikos protein launch</a></nav>
+      <nav class="crumbs"><a href={`${base}/campaign/agropur-natrel-protein`}>← Agropur Natrel protein milk launch</a></nav>
       <span class="eyebrow">Flight replay · six observations across a 30 day flight</span>
       <h1>Optimize, tick by tick</h1>
       <p class="lede">
         The portfolio view shows one moment across 24 campaigns. This shows one campaign across its
         whole flight, which is where the loop and the threshold ratchet become visible.
-        <span class="caveat">Recorded before the book was built, under an earlier market and brand. The
-        figures and decisions are real Jev output; unifying the name needs a re-record.</span>
+        <span class="caveat">Recorded before the scenario was relabelled for Canada, so Jev saw earlier
+        brand and retailer names. The figures and decisions are real Jev output; a re-record refreshes the labels.</span>
       </p>
     </div>
 
@@ -72,11 +72,11 @@
   {#if tick}
     <section class="tiles">
       <StatTile label="Day" value={`${tick.day} / ${POLICY.flightDays}`} detail="of flight" />
-      <StatTile label="Spend" value={`$${(tick.spendToDateEur / 1000).toFixed(1)}k`} detail={`of $${tick.budgetEur / 1000}k budget`} />
+      <StatTile label="Spend" value={`CA$${(tick.spendToDateEur / 1000).toFixed(1)}k`} detail={`of CA$${tick.budgetEur / 1000}k budget`} />
       <StatTile label="Pacing" value={tick.pacingIndex.toFixed(2)} status={pacingStatus}
         detail={`tolerance ${POLICY.pacingTolerance[0]} to ${POLICY.pacingTolerance[1]}`} />
-      <StatTile label="CPA" value={`$${tick.cpaEur.toFixed(2)}`} status={cpaStatus}
-        detail={`target $${POLICY.targetCpaEur.toFixed(2)}`} />
+      <StatTile label="CPA" value={`CA$${tick.cpaEur.toFixed(2)}`} status={cpaStatus}
+        detail={`target CA$${POLICY.targetCpaEur.toFixed(2)}`} />
       <StatTile label="Conversions" value={tick.conversions.toLocaleString()} detail="to date" />
       <StatTile label="Decision spend" value={isSim ? 'not measured' : `${totalCost.toFixed(6)}`}
         detail={isSim ? 'simulated run, no real cost' : `${run.proposals.length} evaluations`} />

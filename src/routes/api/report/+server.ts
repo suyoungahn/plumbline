@@ -21,7 +21,7 @@ export const POST: RequestHandler = async ({ request }) => {
     .map((e) => {
       const tick = TICKS.find((t) => t.day === e.proposal.day);
       const who = e.ruledBy === 'threshold' ? 'executed automatically' : `${e.ruling} by the operator`;
-      return `Day ${e.proposal.day}: ${LEVERS[e.proposal.lever].label}, ${who}. Severity ${e.proposal.severity.toFixed(1)} of ${SEVERITY_MAX}, CPA at the time USD ${tick?.cpaEur.toFixed(2)}.`;
+      return `Day ${e.proposal.day}: ${LEVERS[e.proposal.lever].label}, ${who}. Severity ${e.proposal.severity.toFixed(1)} of ${SEVERITY_MAX}, CPA at the time CA$${tick?.cpaEur.toFixed(2)}.`;
     })
     .join('\n');
 
@@ -34,7 +34,7 @@ export const POST: RequestHandler = async ({ request }) => {
       text: [
         `${ADVERTISER.brand} ${ADVERTISER.market}, days 9 to ${last.day}.`,
         ``,
-        `CPA moved from USD ${first.cpaEur.toFixed(2)} to USD ${last.cpaEur.toFixed(2)} against a USD ${POLICY.targetCpaEur.toFixed(2)} target. ${ledger.length} decisions were recorded over the period.`,
+        `CPA moved from CA$${first.cpaEur.toFixed(2)} to CA$${last.cpaEur.toFixed(2)} against a CA$${POLICY.targetCpaEur.toFixed(2)} target. ${ledger.length} decisions were recorded over the period.`,
         ``,
         facts || 'No decisions were ruled on in this run.',
         ``,
@@ -45,9 +45,9 @@ export const POST: RequestHandler = async ({ request }) => {
   }
 
   const prompt = [
-    `Write a short client update for ${ADVERTISER.brand}, an Italian yogurt brand, from their media agency.`,
-    `Objective: ${POLICY.objective}. Target CPA USD ${POLICY.targetCpaEur}.`,
-    `CPA moved from USD ${first.cpaEur.toFixed(2)} on day ${first.day} to USD ${last.cpaEur.toFixed(2)} on day ${last.day}.`,
+    `Write a short client update for ${ADVERTISER.brand}, a Canadian dairy brand from Agropur, from their media agency.`,
+    `Objective: ${POLICY.objective}. Target CPA CA$${POLICY.targetCpaEur}.`,
+    `CPA moved from CA$${first.cpaEur.toFixed(2)} on day ${first.day} to CA$${last.cpaEur.toFixed(2)} on day ${last.day}.`,
     ``,
     `Decision record:`,
     facts,

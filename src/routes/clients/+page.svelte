@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { money } from '$lib/money';
   import { base } from '$app/paths';
   import { onMount } from 'svelte';
   import { LEVERS, type LeverId } from '$lib/domain';
@@ -14,7 +15,7 @@
     loading = false;
   });
 
-  const eur = (n: number) => (n >= 1000 ? `$${Math.round(n / 1000)}k` : `$${Math.round(n)}`);
+  const eur = money;
   const forClient = (id: ClientId) => rows.filter((r) => r.campaign.clientId === id);
 </script>
 
@@ -51,7 +52,7 @@
                     <span class="cn">{r.campaign.name}</span>
                     <span class="cm">
                       day {r.campaign.day}/{r.campaign.flightDays} · {eur(r.campaign.metrics.delivered)} of {eur(r.campaign.budgetEur)}
-                      · CPA ${r.campaign.metrics.cpa.toFixed(2)}
+                      · CPA CA${r.campaign.metrics.cpa.toFixed(2)}
                     </span>
                     <span class="cl" data-open={r.proposal.gateOpen}>
                       {r.proposal.gateOpen ? LEVERS[r.proposal.lever as LeverId].label : 'no action needed'}

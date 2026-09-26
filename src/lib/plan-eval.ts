@@ -1,17 +1,18 @@
 import { allocationTotal, approvalsRequired, creativeCoverage, type PlanDraft } from '$lib/plan';
 import { availableEur, poolFor } from '$lib/supply';
 import { REQUIRED_LANGUAGES } from '$lib/portfolio';
+import { INVENTORY_BOUNDED } from '$lib/placements';
 import { SEVERITY_RUBRIC } from '$lib/domain';
 import type { JevQuestion } from '$lib/jev-types';
 
 const PLAN_LEVERS: Record<string, string> = {
   approve_as_is: 'The plan is deliverable and priced correctly. Send it for approval unchanged',
   rebalance_to_offsite:
-    'Move the undeliverable onsite allocation to offsite inventory, accepting a higher cost per outcome to keep the budget working',
+    'Move the undeliverable retailer or publisher allocation to programmatic inventory (The Trade Desk, DV360), accepting a higher cost per outcome to keep the budget working',
   extend_flight:
-    'Lengthen the flight so the same onsite budget has more weeks of inventory to spend against',
+    'Lengthen the flight so the same budget has more weeks of finite retailer and publisher inventory to spend against',
   add_retailer:
-    'Add another retailer network to widen the onsite pool rather than over-allocating one retailer',
+    'Add another retailer network or off-app publisher to widen the finite pool rather than over-allocating one seller',
   reduce_budget:
     'Reduce the total budget to what the requested placements can actually deliver, and return the remainder',
   relax_cpa_target: 'Raise the CPA target so cheaper-to-reach inventory qualifies',
@@ -45,7 +46,7 @@ export function stateFor(plan: PlanDraft) {
       requested_over_available: available > 0 ? Number((p.requestedEur / available).toFixed(2)) : null,
       shortfall_eur: Math.max(0, p.requestedEur - available),
       typical_cpa_eur: pool?.typicalCpaEur ?? null,
-      inventory_bounded: p.surface !== 'offsite'
+      inventory_bounded: INVENTORY_BOUNDED[p.surface]
     };
   });
 
@@ -99,3 +100,14 @@ export function planQuestions(): Record<string, JevQuestion> {
 }
 
 export { PLAN_LEVERS };
+
+// Option ids are what Jev chose between, so they stay stable across recordings.
+// These are the names shown on screen.
+const PLAN_LEVER_LABEL: Record<string, string> = {
+  rebalance_to_offsite: 'rebalance to programmatic',
+  add_retailer: 'add a retailer or publisher'
+};
+
+export function planLeverLabel(id: string): string {
+  return PLAN_LEVER_LABEL[id] ?? id.replace(/_/g, ' ');
+}

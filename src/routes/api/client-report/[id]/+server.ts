@@ -15,7 +15,7 @@ import type { RequestHandler } from './$types';
 const ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 const MODEL = env.NARRATE_MODEL ?? 'anthropic/claude-haiku-4.5';
 
-const eur = (n: number) => `USD ${n.toLocaleString('en-GB', { maximumFractionDigits: 0 })}`;
+const eur = (n: number) => `CA$${n.toLocaleString('en-CA', { maximumFractionDigits: 0 })}`;
 
 export const entries = () => CAMPAIGNS.map((c) => ({ id: c.id }));
 
@@ -31,10 +31,10 @@ export const GET: RequestHandler = async ({ params }) => {
     `Campaign: ${c.name} for ${client.name}, day ${c.day} of ${c.flightDays}.`,
     `Objective: ${c.objective}.`,
     `Delivered ${eur(m.delivered)} of a ${eur(c.budgetEur)} budget, ${m.conversions.toLocaleString()} conversions.`,
-    `Blended cost per acquisition ${m.cpa.toFixed(2)} against a target of ${c.targetCpaEur.toFixed(2)}, ${m.cpaVsTargetPct} percent.`,
+    `Blended cost per acquisition CA$${m.cpa.toFixed(2)} against a target of CA$${c.targetCpaEur.toFixed(2)}, ${m.cpaVsTargetPct} percent.`,
     `Pacing index ${m.pacing.toFixed(2)}.`,
     m.underfillEur > 0
-      ? `${eur(m.underfillEur)} of the plan could not be delivered because onsite inventory was not available.`
+      ? `${eur(m.underfillEur)} of the plan could not be delivered because retailer and publisher inventory was not available.`
       : `All allocated budget was delivered.`,
     m.spendAtRisk > 0 ? `${eur(m.spendAtRisk)} of delivered spend sits on placements above target cost per acquisition.` : '',
     p.gateOpen

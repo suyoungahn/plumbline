@@ -11,7 +11,7 @@
     loading = false;
   });
 
-  const eur = (n: number) => `$${n.toLocaleString('en-GB', { maximumFractionDigits: 0 })}`;
+  const eur = (n: number) => `CA$${n.toLocaleString('en-CA', { maximumFractionDigits: 0 })}`;
 
   function save(kind: 'md' | 'html') {
     const md: string = data.markdown;
@@ -90,7 +90,7 @@ ${md
         <div><dt>Budget</dt><dd>{eur(data.metrics.delivered + (data.metrics.allocated - data.metrics.delivered) + 0)}</dd></div>
         <div><dt>Delivered</dt><dd>{eur(data.metrics.delivered)}</dd></div>
         <div><dt>Conversions</dt><dd>{data.metrics.conversions.toLocaleString()}</dd></div>
-        <div><dt>CPA</dt><dd class:bad={data.metrics.cpaVsTargetPct > 0}>${data.metrics.cpa.toFixed(2)}</dd></div>
+        <div><dt>CPA</dt><dd class:bad={data.metrics.cpaVsTargetPct > 0}>CA${data.metrics.cpa.toFixed(2)}</dd></div>
         <div><dt>Pacing</dt><dd>{data.metrics.pacing.toFixed(2)}</dd></div>
         {#if data.metrics.underfillEur > 0}
           <div><dt>Undeliverable</dt><dd class="bad">{eur(data.metrics.underfillEur)}</dd></div>
@@ -107,7 +107,7 @@ ${md
               <td class="aud">{l.audience}</td>
               <td class="r num">{eur(l.delivered)}</td>
               <td class="r num" class:bad={l.fillRate < 0.9}>{(l.fillRate * 100).toFixed(0)}%</td>
-              <td class="r num">${l.cpa.toFixed(2)}</td>
+              <td class="r num">CA${l.cpa.toFixed(2)}</td>
               <td class="r num" class:bad={l.vsTarget > 5} class:good={l.vsTarget <= 0}>{l.vsTarget > 0 ? '+' : ''}{l.vsTarget}%</td>
             </tr>
           {/each}

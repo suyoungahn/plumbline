@@ -9,7 +9,7 @@
   import { SEVERITY_MAX, severityLabel } from '$lib/domain';
   import { LEVERS, type LeverId } from '$lib/domain';
   import { SURFACES, type SurfaceId } from '$lib/placements';
-  import { CLIENTS, type ClientId } from '$lib/portfolio';
+  import { CLIENTS, MANAGER, type ClientId } from '$lib/portfolio';
 
   let data = $state<any>(null);
   let loading = $state(true);
@@ -36,7 +36,7 @@
     : 'queued'
   );
 
-  const eur = (n: number) => (n >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${Math.round(n)}`);
+  const eur = (n: number) => (n >= 1000 ? `CA$${(n / 1000).toFixed(1)}k` : `CA$${Math.round(n)}`);
   const fill = (l: any) => l.deliveredEur / l.allocatedEur;
 
   const rail = $derived<RailStat[]>(
@@ -135,7 +135,7 @@
       : outcome === 'escalated'
         ? { label: 'Sent to the client', why: 'Every action that would fix this is outside the agency mandate.', tone: 'warn' as const }
         : outcome === 'queued'
-          ? { label: 'Sent to Marta', why: 'Either the lever has not earned autonomy, or confidence fell short of its bar.', tone: 'bad' as const }
+          ? { label: `Sent to ${MANAGER.name.split(' ')[0]}`, why: 'Either the lever has not earned autonomy, or confidence fell short of its bar.', tone: 'bad' as const }
           : { label: 'Nothing raised', why: 'The campaign is inside its tolerances, so no proposal was made.', tone: 'neutral' as const }
   );
 
@@ -158,8 +158,8 @@
       <dl class="figs">
         <div><dt>Day</dt><dd>{c.day}/{c.flightDays}</dd></div>
         <div><dt>Delivered</dt><dd>{eur(m.delivered)}</dd></div>
-        <div><dt>CPA</dt><dd class:bad={m.cpaVsTargetPct > 5}>${m.cpa.toFixed(2)}</dd></div>
-        <div><dt>Target</dt><dd>${c.targetCpaEur.toFixed(2)}</dd></div>
+        <div><dt>CPA</dt><dd class:bad={m.cpaVsTargetPct > 5}>CA${m.cpa.toFixed(2)}</dd></div>
+        <div><dt>Target</dt><dd>CA${c.targetCpaEur.toFixed(2)}</dd></div>
         <div><dt>Pacing</dt><dd class:bad={m.pacing > 1.15}>{m.pacing.toFixed(2)}</dd></div>
         {#if m.underfillEur > 0}
           <div><dt>Underfilled</dt><dd class="bad">{eur(m.underfillEur)}</dd></div>
@@ -169,7 +169,7 @@
 
     <div class="acts">
       <a class="act primary" href={`${base}/client-report/${c.id}`}>Create client report</a>
-      {#if c.id === 'danone-oikos-protein'}
+      {#if c.id === 'agropur-natrel-protein'}
         <a class="act" href={`${base}/optimize`}>Replay this flight, tick by tick</a>
       {/if}
     </div>
@@ -191,7 +191,7 @@
         state: { campaign: c.name, day: c.day, flightDays: c.flightDays, targetCpaEur: c.targetCpaEur, metrics: m, lines: c.lines },
         questions: [
           { key: 'gate', type: 'noul', instructions: 'Does this campaign require a decision from the campaign manager right now? Judge it against its own objective, CPA target and pacing tolerance, not against a general notion of good performance.' },
-          { key: 'lever', type: 'choice', instructions: 'Which single lever best corrects this campaign against its objective? Onsite surfaces have finite supply, so a low fill rate means the inventory does not exist and bidding harder will not help.', optionCount: Object.keys(p.leverDistribution).length },
+          { key: 'lever', type: 'choice', instructions: 'Which single lever best corrects this campaign against its objective? Retailer onsite, in-app and off-app publisher deals have finite supply, so a low fill rate means the inventory does not exist and bidding harder will not help. Programmatic is unbounded but costs more.', optionCount: Object.keys(p.leverDistribution).length },
           { key: 'severity', type: 'score', instructions: 'How severe is the gap between current performance and the stated objective?' }
         ],
         answers: { gate: p.gateProbability, lever: p.lever, distribution: p.leverDistribution, confidence: p.leverConfidence, severity: p.severity }
@@ -261,7 +261,7 @@
               {(f * 100).toFixed(0)}%
               {#if f < 0.9}<small>underfill</small>{/if}
             </td>
-            <td class="r num">${l.cpaEur.toFixed(2)}</td>
+            <td class="r num">CA${l.cpaEur.toFixed(2)}</td>
             <td class="r num" class:bad={l.ctrChangePct <= -15}>{l.ctrChangePct ? `${l.ctrChangePct}%` : '—'}</td>
             <td class="r num" class:bad={l.frequencyChangePct >= 25}>{l.frequencyChangePct ? `+${l.frequencyChangePct}%` : 'flat'}</td>
             <td class="r num" class:bad={over > 5} class:good={over <= 0}>
@@ -276,7 +276,7 @@
     </table>
 
     <p class="supply muted small">
-      {SURFACES.sponsored_display.supply} · Offsite: {SURFACES.offsite.supply}. That asymmetry is why
+      Onsite and in-app: {SURFACES.sponsored_display.supply.toLowerCase()} · Off-app: {SURFACES.off_app.supply.toLowerCase()} · Programmatic: {SURFACES.programmatic.supply.toLowerCase()}. That asymmetry is why
       underfill and overspend need opposite actions, and why bidding harder cannot fix a fill problem.
     </p>
 
@@ -343,7 +343,8 @@
   .surf { font-size: 0.68rem; font-weight: 700; padding: 0.1rem 0.35rem; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.03em; }
   .surf[data-s='sponsored_display'] { background: color-mix(in srgb, var(--series-1) 16%, transparent); color: var(--series-1); }
   .surf[data-s='in_app'] { background: color-mix(in srgb, var(--series-3) 18%, transparent); color: var(--series-3); }
-  .surf[data-s='offsite'] { background: color-mix(in srgb, var(--series-7) 16%, transparent); color: var(--series-7); }
+  .surf[data-s='programmatic'] { background: color-mix(in srgb, var(--series-7) 16%, transparent); color: var(--series-7); }
+  .surf[data-s='off_app'] { background: color-mix(in srgb, var(--series-4) 16%, transparent); color: var(--series-4); }
   .ret { font-size: 0.72rem; color: var(--text-muted); margin-left: 0.35rem; }
 
   .quality { display: flex; gap: 1.2rem; flex-wrap: wrap; align-items: flex-start; padding: 0.85rem 1rem; background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius); }

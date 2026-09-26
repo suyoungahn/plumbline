@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { money, decisionCost } from '$lib/money';
   import { base } from '$app/paths';
   import { onMount } from 'svelte';
   import { LEVERS, type LeverId } from '$lib/domain';
@@ -13,7 +14,7 @@
   });
 
   const eur = (n: number) =>
-    n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(2)}M` : n >= 1000 ? `$${Math.round(n / 1000)}k` : `$${Math.round(n)}`;
+    money(n);
 </script>
 
 <div class="page">
@@ -35,11 +36,11 @@
       <div><dt>Under management</dt><dd>{eur(t.budget)}</dd></div>
       <div><dt>Decisions taken</dt><dd>{t.decisions}</dd></div>
       <div><dt>Reached a human</dt><dd class="hl">{t.neededHuman}</dd></div>
-      <div><dt>Cost to decide</dt><dd>${t.costUsd}</dd></div>
+      <div><dt>Cost to decide</dt><dd>{decisionCost(t.costUsd)}</dd></div>
     </section>
 
     <p class="claim">
-      {t.decisions} decisions across {t.campaigns} campaigns cost <strong>${t.costUsd}</strong> and
+      {t.decisions} decisions across {t.campaigns} campaigns cost <strong>{decisionCost(t.costUsd)}</strong> and
       consumed <strong>{t.neededHuman}</strong> pieces of human attention. The equivalent week of
       manual review is what {MANAGER.bookUsedToNeed} people used to spend their time on.
     </p>
@@ -69,8 +70,8 @@
             <td class="r num">{c.campaigns}</td>
             <td class="r num">{eur(c.budget)}</td>
             <td class="r num">{eur(c.delivered)}</td>
-            <td class="r num" class:bad={c.cpa > c.targetCpa} class:good={c.cpa <= c.targetCpa}>${c.cpa.toFixed(2)}</td>
-            <td class="r num muted">${c.targetCpa.toFixed(2)}</td>
+            <td class="r num" class:bad={c.cpa > c.targetCpa} class:good={c.cpa <= c.targetCpa}>CA${c.cpa.toFixed(2)}</td>
+            <td class="r num muted">CA${c.targetCpa.toFixed(2)}</td>
             <td class="r num" class:bad={c.underfillEur > 0}>{c.underfillEur ? eur(c.underfillEur) : '—'}</td>
             <td class="r num" class:bad={c.spendAtRisk > 2000}>{c.spendAtRisk ? eur(c.spendAtRisk) : '—'}</td>
             <td class="r num">{c.neededHuman}<span class="of">/{c.campaigns}</span></td>
@@ -91,8 +92,8 @@
     <p class="muted small">
       Underfilled is plan money that could not be delivered because the inventory was not there. At risk
       is delivered spend sitting on placements above their target CPA. Both are invisible in a blended
-      average, which is why they have their own columns: Lavazza's blended CPA is inside target while
-      {eur(data.clients.find((x: any) => x.id === 'lavazza')?.spendAtRisk ?? 0)} of its spend runs at
+      average, which is why they have their own columns: Tim Hortons at-home's blended CPA is inside target while
+      {eur(data.clients.find((x: any) => x.id === 'timhortons')?.spendAtRisk ?? 0)} of its spend runs at
       nearly double it.
     </p>
   {/if}

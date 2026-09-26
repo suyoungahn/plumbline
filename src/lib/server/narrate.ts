@@ -32,13 +32,13 @@ export async function narrate(
 
   const shared = [
     `Campaign objective: ${policy.objective}`,
-    `Target CPA: USD ${policy.targetCpaEur}. Pacing tolerance: ${policy.pacingTolerance.join(' to ')}.`,
-    `Day ${tick.day} of ${policy.flightDays}. Budget USD ${tick.budgetEur.toLocaleString()}. Spend USD ${tick.spendToDateEur.toLocaleString()}. Pacing index ${tick.pacingIndex}. CPA USD ${tick.cpaEur}.`,
+    `Target CPA: CAD ${policy.targetCpaEur}. Pacing tolerance: ${policy.pacingTolerance.join(' to ')}.`,
+    `Day ${tick.day} of ${policy.flightDays}. Budget CAD ${tick.budgetEur.toLocaleString()}. Spend CAD ${tick.spendToDateEur.toLocaleString()}. Pacing index ${tick.pacingIndex}. CPA CAD ${tick.cpaEur}.`,
     '',
     'Line items:',
     ...tick.lineItems.map(
       (l) =>
-        `- ${l.platform} / ${l.audience} / ${l.placement}: ${Math.round(l.shareOfSpend * 100)} percent of spend, CPA USD ${l.cpaEur}, CTR ${(l.ctr * 100).toFixed(2)} percent, headroom ${l.headroom}, bid vs CPA-justified ${l.bidVsJustified}${l.note ? `. ${l.note}` : ''}`
+        `- ${l.platform} / ${l.audience} / ${l.placement}: ${Math.round(l.shareOfSpend * 100)} percent of spend, CPA CAD ${l.cpaEur}, CTR ${(l.ctr * 100).toFixed(2)} percent, headroom ${l.headroom}, bid vs CPA-justified ${l.bidVsJustified}${l.note ? `. ${l.note}` : ''}`
     ),
     ''
   ];

@@ -77,7 +77,7 @@ pf.summary.source === 'replay'
 pf.summary.needsHuman > 0 && pf.summary.needsHuman < 8
   ? ok(`${pf.summary.needsHuman} need a human, ${pf.summary.handled} cleared`)
   : bad(`queue size ${pf.summary.needsHuman} is not demo-shaped`);
-for (const p2 of ['/today', '/reporting', '/clients', '/plan', '/campaign/generalmills-pantry-reset', '/client-report/generalmills-pantry-reset', '/optimize']) {
+for (const p2 of ['/today', '/reporting', '/clients', '/plan', '/flowchart', '/pacing', '/weekly-report', '/keywords', '/campaign/mccain-freezer-reset', '/client-report/mccain-freezer-reset', '/optimize']) {
   const r = await fetch(`${BASE}${p2}`);
   r.ok ? ok(`${p2} renders`) : bad(`${p2} returned ${r.status}`);
 }
@@ -93,7 +93,7 @@ else {
     ? ok(`${(pc.state.undeliverable_pct * 100).toFixed(1)}% of budget undeliverable, caught before launch`)
     : bad(`undeliverable is only ${pc.state.undeliverable_eur}, too small to land`);
 }
-const cr = await (await fetch(`${BASE}/api/client-report/generalmills-pantry-reset`)).json();
+const cr = await (await fetch(`${BASE}/api/client-report/mccain-freezer-reset`)).json();
 cr.markdown && cr.markdown.length > 500 ? ok('client report generates from the record') : bad('client report is empty or too short');
 
 console.log('\nDecision log');

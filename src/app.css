@@ -142,3 +142,54 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   text-transform: uppercase;
   color: var(--text-muted);
 }
+
+@page { size: letter; margin: 0.5in 0.6in; }
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff !important; }
+}
+
+/* Campaign flow: Plan → Flowchart → Pacing → Weekly report */
+.mp-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem 2rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.mp-top .lede { color: var(--text-secondary); max-width: 80ch; margin: 0.35rem 0 0; font-size: 0.9rem; }
+.mp-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+.mp-card { padding: 1rem 1.15rem; margin-bottom: 0.9rem; background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius); }
+.mp-card > h2 { font-size: 0.92rem; margin-bottom: 0.55rem; }
+.mp-card[data-tone='alert'] { border-left: 3px solid var(--warning); }
+.mp-card[data-tone='bad'] { border-left: 3px solid var(--critical); }
+.mp-card[data-tone='ok'] { border-left: 3px solid var(--good); }
+.mp-note { font-size: 0.78rem; color: var(--text-secondary); margin: 0 0 0.75rem; max-width: 92ch; }
+.mp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0.6rem; }
+.mp-grid .wide { grid-column: 1 / -1; }
+.mp-field { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+.mp-in, .mp-field input, .mp-field select, .mp-field textarea {
+  font: inherit; font-size: 0.85rem; text-transform: none; letter-spacing: normal; color: var(--text-primary);
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 7px; padding: 0.32rem 0.5rem; width: 100%; min-width: 0;
+}
+.mp-in:focus, .mp-field input:focus, .mp-field select:focus, .mp-field textarea:focus { outline: 2px solid var(--series-1); outline-offset: -1px; }
+.mp-in.num { text-align: right; font-variant-numeric: tabular-nums; }
+.mp-in.input-cell { color: var(--series-1); }
+.mp-scroll { overflow-x: auto; margin: 0 -0.2rem; padding: 0 0.2rem; }
+.mp-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+.mp-table th { text-align: left; font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; color: var(--text-muted); padding: 0.35rem 0.4rem; border-bottom: 1px solid var(--border); white-space: nowrap; vertical-align: bottom; }
+.mp-table td { padding: 0.25rem 0.4rem; border-bottom: 1px solid var(--grid); vertical-align: middle; }
+.mp-table .r { text-align: right; }
+.mp-table .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mp-table tfoot td { font-weight: 700; border-top: 1px solid var(--border); border-bottom: none; }
+.mp-table .muted, .mp-muted { color: var(--text-muted); }
+.mp-ok { color: var(--good-text); font-weight: 600; }
+.mp-bad { color: var(--critical); font-weight: 600; }
+.mp-warn { color: var(--serious); font-weight: 600; }
+.mp-primary { background: var(--series-1); border-color: var(--series-1); color: #fff; font-weight: 600; }
+.mp-primary:hover:not(:disabled) { filter: brightness(1.08); background: var(--series-1); }
+.mp-link { background: none; border: none; padding: 0.1rem 0.3rem; color: var(--text-muted); font-size: 0.72rem; }
+.mp-link:hover:not(:disabled) { color: var(--critical); background: none; }
+.mp-list { list-style: none; margin: 0 0 0.6rem; padding: 0; display: flex; flex-direction: column; gap: 0.35rem; }
+.mp-list li { display: flex; gap: 0.4rem; align-items: flex-start; }
+.mp-list textarea { flex: 1; font: inherit; font-size: 0.82rem; color: var(--text-primary); background: var(--surface-2); border: 1px solid var(--border); border-radius: 7px; padding: 0.35rem 0.5rem; resize: vertical; min-height: 2.4rem; }
+.mp-pill { font-size: 0.64rem; font-weight: 700; padding: 0.1rem 0.4rem; border-radius: 20px; white-space: nowrap; background: var(--surface-3); color: var(--text-secondary); }
+.mp-pill[data-s='On pace'] { background: color-mix(in srgb, var(--good) 16%, transparent); color: var(--good-text); }
+.mp-pill[data-s='Overpacing'] { background: color-mix(in srgb, var(--critical) 14%, transparent); color: var(--critical); }
+.mp-pill[data-s='Underpacing'] { background: color-mix(in srgb, var(--warning) 24%, transparent); color: var(--text-primary); }
+.mp-next { display: flex; justify-content: flex-end; margin-top: 0.4rem; }

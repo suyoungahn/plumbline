@@ -1,63 +1,55 @@
 <script lang="ts">
   import { base } from '$app/paths';
-  import { onMount } from 'svelte';
   import JevPanel from '$lib/components/JevPanel.svelte';
-  import StatRail from '$lib/components/StatRail.svelte';
-  import type { RailStat } from '$lib/components/stat-rail';
-  import type { JevDelta, JevOutcome, JevStep } from '$lib/components/jev-panel';
+  import type { JevDelta, JevStep } from '$lib/components/jev-panel';
   import { SURFACES, type SurfaceId } from '$lib/placements';
   import { SUPPLY } from '$lib/supply';
-  import { CLIENTS, MANAGER, MARKET_LABEL, REQUIRED_LANGUAGES, type ClientId, type Market } from '$lib/portfolio';
-  import {
-    OBJECTIVES, STATUS_LABEL, allocationTotal, approvalsRequired, creativeCoverage,
-    FORMAT_SURFACES,
-    type CampaignStatus, type CreativeAsset, type CreativeFormat, type ObjectiveType, type PlanDraft
-  } from '$lib/plan';
-  import { DRAFT } from '$lib/scenario/draft-plan';
-  import { money } from '$lib/money';
+  import { MANAGER } from '$lib/portfolio';
+  import { STATUS_LABEL, approvalsRequired, creativeCoverage, FORMAT_SURFACES, type CampaignStatus, type CreativeAsset, type CreativeFormat } from '$lib/plan';
   import { GATE_THRESHOLD } from '$lib/domain';
-  import { PLAN_LEVERS, planQuestions, stateFor as planStateFor } from '$lib/plan-eval';
+  import { planLeverLabel, planQuestions, stateFor as planStateFor } from '$lib/plan-eval';
   import { simulate } from '$lib/heuristic';
+  import { doc, newLineId, resetCampaign } from '$lib/mediaplan/store.svelte';
+  import { CHANNELS, type BuyType, type ChannelId, type PlanLine } from '$lib/mediaplan/types';
+  import { cad, estimates, fitWeeks, flightDays, pct, planTotals, weekCount } from '$lib/mediaplan/calc';
+  import { retailLines, toPlanDraft } from '$lib/mediaplan/deliverability';
+  import { downloadWorkbook } from '$lib/mediaplan/xlsx';
 
-  let plan = $state<PlanDraft>(structuredClone(DRAFT));
+  const plan = $derived(doc.plan);
+  const totals = $derived(planTotals(plan));
+  const approvals = $derived(approvalsRequired(plan.totalBudget));
+  const draft = $derived(toPlanDraft(plan));
+  const coverage = $derived(creativeCoverage(draft));
+  const retail = $derived(retailLines(plan));
+
   let check = $state<any>(null);
   let prev = $state<any>(null);
   let planState = $state<any>(null);
   let checking = $state(false);
+  let exporting = $state(false);
   let status = $state<CampaignStatus>('draft');
   let trail = $state<{ stage: string; by: string; note: string }[]>([]);
-  let thumbs = $state<Record<string, string>>({});
   let fileInput: HTMLInputElement | undefined = $state();
 
-  const eur = money;
-
-  const coverage = $derived(creativeCoverage(plan));
-  const allocated = $derived(allocationTotal(plan));
-  const approvals = $derived(approvalsRequired(plan.budgetEur));
-  const submittable = $derived(!!check?.deliverable && coverage.ready && status === 'draft');
-
-  const RETAILERS = [...new Set(SUPPLY.map((s) => s.retailer))];
   const FORMATS = Object.keys(FORMAT_SURFACES) as CreativeFormat[];
+  const BUY_TYPES: BuyType[] = ['CPM', 'CPC', 'Flat', 'TBD'];
+  const sellers = (surface: SurfaceId) => [...new Set(SUPPLY.filter((s) => s.surface === surface).map((s) => s.retailer))];
 
   function evaluateLocally() {
-    const s = planStateFor(plan);
+    const s = planStateFor(draft);
     const sim = simulate(s, planQuestions());
     const gate = sim.answers.gate as Record<string, number>;
     const lever = sim.answers.lever as Record<string, unknown>;
     const sev = sim.answers.severity as Record<string, number>;
-    const dist = lever.probabilities as Record<string, number>;
-    const selected = lever.choice as string;
     return {
       state: s,
       check: {
-        deliverableProbability: 1 - gate.noul,
-        deliverable: 1 - gate.noul >= GATE_THRESHOLD,
-        recommendation: selected,
-        recommendationLabel: PLAN_LEVERS[selected] ?? selected,
-        distribution: dist,
+        deliverableProbability: gate.noul,
+        deliverable: gate.noul >= GATE_THRESHOLD,
+        recommendation: lever.choice as string,
+        distribution: lever.probabilities as Record<string, number>,
         confidence: lever.confidence as number,
         riskScore: sev.score,
-        riskConfidence: sev.confidence,
         costUsd: 0,
         latencyMs: 0,
         source: 'sim'
@@ -65,23 +57,15 @@
     };
   }
 
+  // Re-check deliverability whenever a retail line, the flight or the creative changes.
   let timer: ReturnType<typeof setTimeout> | undefined;
-  let pristine = true;
-
-  function reevaluate(immediate = false) {
-    if (!immediate) pristine = false;
+  $effect(() => {
+    const body = JSON.stringify({ plan: draft });
     clearTimeout(timer);
     timer = setTimeout(async () => {
       checking = true;
       try {
-        const url = pristine ? `${base}/api/plan-baseline` : `${base}/api/plan-check`;
-        const res = pristine
-          ? await fetch(url)
-          : await fetch(url, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ plan })
-            });
+        const res = await fetch(`${base}/api/plan-check`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
         if (!res.ok) throw new Error(String(res.status));
         const j = await res.json();
         if (check) prev = check;
@@ -95,84 +79,87 @@
       } finally {
         checking = false;
       }
-    }, immediate ? 0 : 550);
+    }, 500);
+  });
+
+  function onFlightChange() {
+    fitWeeks(doc.plan);
   }
 
-  onMount(() => reevaluate(true));
+  function setChannel(l: PlanLine, ch: ChannelId) {
+    l.channel = ch;
+    l.role = CHANNELS[ch].role;
+    const surface = CHANNELS[ch].surface;
+    if (surface && !sellers(surface).includes(l.partner)) l.partner = sellers(surface)[0];
+  }
 
-  function setPlacement(i: number, v: number) {
-    plan.placements[i].requestedEur = Math.max(0, Math.round(v));
-    reevaluate();
+  function addLine() {
+    doc.plan.lines.push({
+      id: newLineId(), channel: 'paid_social', partner: '', tactic: '', targeting: '', kpi: 'Sign-ups (CPA)',
+      buyType: 'CPM', rate: 10, budget: 0, role: 'performance'
+    });
   }
-  function removePlacement(i: number) {
-    plan.placements.splice(i, 1);
-    reevaluate();
+
+  function removeLine(i: number) {
+    const [gone] = doc.plan.lines.splice(i, 1);
+    doc.plan.heldLineIds = doc.plan.heldLineIds.filter((id) => id !== gone.id);
+    delete doc.pacing.actuals[gone.id];
   }
-  function addPlacement() {
-    const used = new Set(plan.placements.map((p) => `${p.retailer}|${p.surface}`));
-    const free = SUPPLY.find((s) => !used.has(`${s.retailer}|${s.surface}`));
-    if (!free) return;
-    plan.placements.push({ retailer: free.retailer, surface: free.surface, requestedEur: 10_000 });
-    reevaluate();
-  }
-  function autoBalance() {
+
+  // Jev's fix: cap every inventory-bounded line at what exists and move the rest to
+  // programmatic, which is always available at a higher cost per outcome.
+  function applyFix() {
     if (!planState) return;
     let spill = 0;
-    plan.placements.forEach((p, i) => {
+    retail.forEach((l, i) => {
       const s = planState.placements[i];
-      if (s?.inventory_bounded && p.requestedEur > s.available_eur) {
-        spill += p.requestedEur - s.available_eur;
-        p.requestedEur = s.available_eur;
+      if (s?.inventory_bounded && l.budget > s.available_eur) {
+        spill += l.budget - s.available_eur;
+        l.budget = s.available_eur;
       }
     });
-    const off = plan.placements.find((p) => p.surface === 'offsite');
-    if (off) off.requestedEur += spill;
-    else plan.placements.push({ retailer: 'Open web (DV360, TTD)', surface: 'offsite', requestedEur: spill });
-    trail = [...trail, { stage: 'Plan corrected', by: `${MANAGER.name}`, note: `Capped onsite at available inventory, ${eur(spill)} moved to offsite` }];
-    reevaluate();
+    const prog = doc.plan.lines.find((l) => l.channel === 'programmatic');
+    if (prog) prog.budget += spill;
+    else doc.plan.lines.push({ id: newLineId(), channel: 'programmatic', partner: 'The Trade Desk', tactic: 'Display + native', targeting: 'Retailer audience extension', kpi: 'Sign-ups / CPA', buyType: 'CPM', rate: 6, budget: spill, role: 'performance' });
+    trail = [...trail, { stage: 'Plan corrected', by: MANAGER.name, note: `Capped finite retail and publisher lines at available inventory; ${cad(spill)} moved to programmatic` }];
   }
 
   async function onFiles(e: Event) {
     const files = Array.from((e.target as HTMLInputElement).files ?? []);
     for (const f of files) {
-      const id = `cr-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-      let format: CreativeFormat = 'app_native';
+      let format: CreativeFormat = /native/i.test(f.name) ? 'web_native' : 'app_native';
       if (f.type.startsWith('image/')) {
         const url = URL.createObjectURL(f);
-        thumbs[id] = url;
         const dims = await new Promise<{ w: number; h: number }>((res) => {
           const img = new Image();
           img.onload = () => res({ w: img.naturalWidth, h: img.naturalHeight });
           img.onerror = () => res({ w: 0, h: 0 });
           img.src = url;
         });
+        URL.revokeObjectURL(url);
         const key = `${dims.w}x${dims.h}` as CreativeFormat;
         format = (FORMATS as string[]).includes(key) ? key : '300x250';
       } else if (f.type.startsWith('video/')) format = 'video_15s';
-
       const asset: CreativeAsset = {
-        id,
+        id: `cr-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         filename: f.name,
         format,
         sizeKb: Math.round(f.size / 1024),
         eligibleSurfaces: FORMAT_SURFACES[format],
-
-        language: /_fr[-_]?ca|_fr\b|_fr\./i.test(f.name) ? 'fr-CA' : /_es\b|_es\./i.test(f.name) ? 'es' : 'en'
+        language: /_fr[-_]?ca|_fr\b|_fr\./i.test(f.name) ? 'fr-CA' : 'en'
       };
-      plan.creatives.push(asset);
+      doc.plan.creatives.push(asset);
     }
     if (fileInput) fileInput.value = '';
-    reevaluate();
   }
 
-  function setFormat(c: CreativeAsset, f: CreativeFormat) {
-    c.format = f;
-    c.eligibleSurfaces = FORMAT_SURFACES[f];
-    reevaluate();
-  }
-  function removeCreative(i: number) {
-    plan.creatives.splice(i, 1);
-    reevaluate();
+  async function exportXlsx() {
+    exporting = true;
+    try {
+      await downloadWorkbook($state.snapshot(doc.plan), $state.snapshot(doc.pacing));
+    } finally {
+      exporting = false;
+    }
   }
 
   const STEPS_UI: { key: CampaignStatus; label: string }[] = [
@@ -183,64 +170,20 @@
     { key: 'live', label: 'Live' }
   ];
   const stepIndex = $derived(STEPS_UI.findIndex((s) => s.key === status));
-
+  const budgetOk = $derived(totals.offBy === 0);
+  const submittable = $derived(!!check?.deliverable && coverage.ready && budgetOk && status === 'draft');
   function advance(to: CampaignStatus, stage: string, by: string, note: string) {
     status = to;
     trail = [...trail, { stage, by, note }];
   }
 
-  const rail = $derived<RailStat[]>(
-    !check || !planState
-      ? []
-      : [
-          {
-            label: 'Deliverable',
-            value: `${(check.deliverableProbability * 100).toFixed(0)}%`,
-            tone: check.deliverable ? 'good' : 'bad',
-            bar: check.deliverableProbability,
-            threshold: 0.5,
-            note: check.deliverable ? 'clears the 50% bar' : 'below the 50% bar'
-          },
-          {
-            label: 'Undeliverable',
-            value: eur(planState.undeliverable_eur),
-            tone: planState.undeliverable_eur > 0 ? 'bad' : 'good',
-            note: `${(planState.undeliverable_pct * 100).toFixed(1)}% of budget`
-          },
-          {
-            label: 'Expected CPA',
-            value: `${planState.expected_blended_cpa_eur}`,
-            tone: planState.expected_cpa_vs_target_pct > 0 ? 'bad' : 'good',
-            note: `${planState.expected_cpa_vs_target_pct > 0 ? '+' : ''}${planState.expected_cpa_vs_target_pct}% vs ${plan.targetCpaEur.toFixed(2)} target`
-          },
-          {
-            label: 'Delivery risk',
-            value: `${check.riskScore.toFixed(1)} / 4`,
-            tone: check.riskScore > 2 ? 'bad' : check.riskScore > 1 ? 'warn' : 'good',
-            bar: check.riskScore / 4
-          },
-          {
-            label: 'Allocated',
-            value: eur(allocated),
-            tone: allocated === plan.budgetEur ? 'good' : 'warn',
-            note: allocated === plan.budgetEur ? 'matches budget' : `of ${eur(plan.budgetEur)} budget`
-          },
-          {
-            label: 'Creative',
-            value: coverage.ready ? 'Ready' : 'Blocked',
-            tone: coverage.ready ? 'good' : 'bad',
-            note: coverage.ready ? `${coverage.required.join(', ')} covered` : `${coverage.gaps.length} language gap(s)`
-          }
-        ]
-  );
-
   const jevSteps = $derived<JevStep[]>(
     !check || !planState
       ? []
       : [
-          { label: 'What it read', primitive: `${Object.keys(planState).length} state fields`, value: `${plan.placements.length} placements`, sub: `${plan.creatives.length} creatives, ${eur(plan.budgetEur)} over ${plan.flightDays} days`, lit: true },
-          { label: 'Is this deliverable?', primitive: 'noul · bar at 50%', value: `${(check.deliverableProbability * 100).toFixed(0)}%`, bar: { value: check.deliverableProbability, threshold: 0.5, tone: check.deliverable ? 'good' : 'bad' }, sub: check.deliverable ? 'clears the bar' : `${eur(planState.undeliverable_eur)} has nowhere to go`, lit: true },
-          { label: 'What would fix it?', primitive: `choice · over ${Object.keys(check.distribution).length} options`, value: check.recommendation.replace(/_/g, ' '), sub: `${(check.confidence * 100).toFixed(0)}% confidence`, lit: true },
+          { label: 'What it read', primitive: `${Object.keys(planState).length} state fields`, value: `${retail.length} retail and publisher lines`, sub: `${cad(draft.budgetEur)} of the plan draws on finite or priced supply`, lit: true },
+          { label: 'Is this deliverable?', primitive: 'noul · bar at 50%', value: pct(check.deliverableProbability), bar: { value: check.deliverableProbability, threshold: 0.5, tone: check.deliverable ? 'good' : 'bad' }, sub: check.deliverable ? 'clears the bar' : `${cad(planState.undeliverable_eur)} has nowhere to go`, lit: true },
+          { label: 'What would fix it?', primitive: `choice · over ${Object.keys(check.distribution).length} options`, value: planLeverLabel(check.recommendation), sub: `${pct(check.confidence)} confidence`, lit: true },
           { label: 'How much risk?', primitive: 'score · 0 to 4', value: check.riskScore.toFixed(1), bar: { value: check.riskScore / 4, tone: check.riskScore > 2 ? 'bad' : 'good' }, lit: true }
         ]
   );
@@ -248,42 +191,38 @@
     !check
       ? { label: '—', why: '', tone: 'neutral' as const }
       : check.deliverable && coverage.ready
-        ? { label: 'Ready to submit', why: 'Deliverable against real inventory, and every surface has eligible creative.', tone: 'good' as const }
+        ? { label: 'Deliverable', why: 'Every retail and publisher line fits the inventory that exists, and every surface has eligible creative.', tone: 'good' as const }
         : !check.deliverable
           ? { label: 'Blocked: not deliverable', why: 'Submission is disabled until the allocation fits the inventory that exists.', tone: 'bad' as const }
-          : {
-              label: 'Blocked: creative gap',
-              why: coverage.gaps
-                .map((g) => `no ${g.language} asset for ${g.surfaces.map((s: SurfaceId) => SURFACES[s].label).join(', ')}`)
-                .join('; '),
-              tone: 'warn' as const
-            }
+          : { label: 'Blocked: creative gap', why: coverage.gaps.map((g) => `no ${g.language} asset for ${g.surfaces.map((s) => SURFACES[s].label).join(', ')}`).join('; '), tone: 'warn' as const }
   );
-  const delta = $derived(
+  const delta = $derived<JevDelta[]>(
     prev && check
       ? [
-          { label: 'Deliverable', from: `${(prev.deliverableProbability * 100).toFixed(0)}%`, to: `${(check.deliverableProbability * 100).toFixed(0)}%`, better: check.deliverableProbability > prev.deliverableProbability },
-          { label: 'Recommended change', from: prev.recommendation.replace(/_/g, ' '), to: check.recommendation.replace(/_/g, ' '), better: check.recommendation === 'approve_as_is' },
-          { label: 'Delivery risk', from: prev.riskScore.toFixed(1), to: check.riskScore.toFixed(1), better: check.riskScore < prev.riskScore }
+          { label: 'Deliverable', from: pct(prev.deliverableProbability), to: pct(check.deliverableProbability), better: check.deliverableProbability > prev.deliverableProbability },
+          { label: 'Recommended change', from: planLeverLabel(prev.recommendation), to: planLeverLabel(check.recommendation), better: check.recommendation === 'approve_as_is' }
         ].filter((d) => d.from !== d.to)
       : []
   );
 </script>
 
-<div class="page shell">
-  <header class="top">
+<div class="page">
+  <header class="mp-top">
     <div>
-      <span class="eyebrow">New campaign · {MANAGER.agency}</span>
-      <h1>Plan a campaign</h1>
+      <span class="eyebrow">Step 1 of 4 · {plan.client}</span>
+      <h1>Media plan</h1>
       <p class="lede">
-        Every field here is editable, and Jev re-evaluates the whole plan each time you change one.
-        Change a number and watch the deliverability move.
+        Fill in the brief and the line items. Everything else, from estimated delivery to the weekly
+        flowchart and the client workbook, is calculated from these fields. Jev checks whether the
+        retail and publisher lines can actually be delivered while you type.
       </p>
     </div>
-    <span class="live" class:on={checking}>{checking ? 'Jev re-evaluating…' : 'Up to date'}</span>
+    <div class="mp-actions">
+      <button onclick={() => confirm('Discard your edits and reload the sample campaign?') && resetCampaign()}>Reset to sample</button>
+      <button class="mp-primary" onclick={exportXlsx} disabled={exporting}>{exporting ? 'Building…' : 'Download media plan (.xlsx)'}</button>
+    </div>
   </header>
 
-  <div class="main">
   <ol class="stepper">
     {#each STEPS_UI as s, i (s.key)}
       <li class:done={i < stepIndex} class:on={i === stepIndex}><span class="sn">{i < stepIndex ? '✓' : i + 1}</span>{s.label}</li>
@@ -291,244 +230,243 @@
     <li class="st">{STATUS_LABEL[status]}</li>
   </ol>
 
-  {#if check}
-    <JevPanel
-      steps={jevSteps}
-      outcome={jevOutcome}
-      {delta}
-      meta={{ costUsd: check.costUsd, latencyMs: check.latencyMs, source: check.source }}
-      raw={{ state: planState, questions: [
-        { key: 'gate', type: 'noul', instructions: 'Is this media plan deliverable as specified?' },
-        { key: 'lever', type: 'choice', instructions: 'Which single change would best fix this plan before it goes to approval?', optionCount: Object.keys(check.distribution).length },
-        { key: 'severity', type: 'score', instructions: 'How much delivery risk does this plan carry as written?' }
-      ], answers: { deliverable: check.deliverableProbability, recommendation: check.recommendation, distribution: check.distribution, confidence: check.confidence, risk: check.riskScore } }}
-    />
-  {/if}
-
-  <section class="card">
-    <h2>1 · Objective and budget</h2>
-    <div class="grid">
-      <label>Advertiser
-        <select bind:value={plan.clientId} onchange={() => reevaluate()}>
-          {#each Object.entries(CLIENTS) as [id, c] (id)}<option value={id}>{c.name}</option>{/each}
-        </select>
-      </label>
-      <label>Campaign name
-        <input bind:value={plan.name} oninput={() => reevaluate()} />
-      </label>
-      <label>Market
-        <select bind:value={plan.market} onchange={() => reevaluate()}>
-          <option value="US">United States</option>
-          <option value="CA">Canada</option>
-        </select>
-      </label>
-      <label>Objective type
-        <select bind:value={plan.objectiveType} onchange={() => reevaluate()}>
-          {#each Object.entries(OBJECTIVES) as [k, o] (k)}<option value={k}>{o.label}</option>{/each}
-        </select>
-      </label>
-      <label class="wide">Objective
-        <input bind:value={plan.objective} oninput={() => reevaluate()} />
-      </label>
-      <label>Budget (EUR)
-        <input type="number" step="5000" min="0" bind:value={plan.budgetEur} oninput={() => reevaluate()} />
-      </label>
-      <label>Flight (days)
-        <input type="number" step="1" min="1" max="180" bind:value={plan.flightDays} oninput={() => reevaluate()} />
-      </label>
-      <label>Target CPA (EUR)
-        <input type="number" step="0.5" min="0" bind:value={plan.targetCpaEur} oninput={() => reevaluate()} />
-      </label>
+  <section class="mp-card">
+    <h2>1 · Campaign brief</h2>
+    <div class="mp-grid">
+      <label class="mp-field">Client<input bind:value={doc.plan.client} /></label>
+      <label class="mp-field">Campaign<input bind:value={doc.plan.campaign} /></label>
+      <label class="mp-field">Prepared for<input bind:value={doc.plan.preparedFor} /></label>
+      <label class="mp-field">Version / status<input bind:value={doc.plan.status} /></label>
+      <label class="mp-field wide">Objective<input bind:value={doc.plan.objective} /></label>
+      <label class="mp-field">Conversion counted<input bind:value={doc.plan.conversionName} placeholder="sign-up" /></label>
+      <label class="mp-field">Target CPA (CAD)<input type="number" step="0.5" min="0" bind:value={doc.plan.targetCpa} /></label>
+      <label class="mp-field">Flight start<input type="date" bind:value={doc.plan.flightStart} onchange={onFlightChange} /></label>
+      <label class="mp-field">Flight end<input type="date" bind:value={doc.plan.flightEnd} onchange={onFlightChange} /></label>
+      <label class="mp-field">Total budget (CAD)<input type="number" step="5000" min="0" bind:value={doc.plan.totalBudget} /></label>
     </div>
-    <p class="note">
-      {OBJECTIVES[plan.objectiveType as ObjectiveType].note}. {approvals.reason}.
-      {MARKET_LABEL[plan.market as Market]} requires creative in {REQUIRED_LANGUAGES[plan.market as Market].join(' and ')}.
+    <p class="mp-note" style="margin: 0.7rem 0 0">
+      {flightDays(plan)} days, {weekCount(plan)} flowchart weeks. Primary KPI: cost per new {plan.conversionName}
+      (target {cad(plan.targetCpa, 2)}). {approvals.reason}. Canada, including Quebec, requires creative in English and French.
     </p>
   </section>
 
-  <section class="card">
-    <h2>2 · Placements</h2>
-    <p class="note">
-      Drag a slider and the deliverability re-evaluates. Onsite inventory is finite, so the bar
-      behind each slider is what actually exists over this flight.
+  <section class="mp-card" data-tone={budgetOk ? undefined : 'alert'}>
+    <h2>2 · Line items</h2>
+    <p class="mp-note">
+      One row per buy. Estimated impressions are budget ÷ CPM × 1,000 and estimated clicks are budget ÷
+      CPC. Retail onsite, in-app, off-app and programmatic lines draw on the supply Jev checks below;
+      pick the seller from the list.
     </p>
+    <div class="mp-scroll">
+      <table class="mp-table lines">
+        <thead>
+          <tr>
+            <th>#</th><th>Channel</th><th>Partner / platform</th><th>Tactic & placement</th><th>Targeting</th><th>KPI</th>
+            <th>Buy</th><th class="r">Rate</th><th class="r">Net budget</th><th class="r">% total</th><th class="r">Est. impr.</th><th class="r">Est. clicks</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each doc.plan.lines as l, i (l.id)}
+            {@const e = estimates(l)}
+            {@const surface = CHANNELS[l.channel].surface}
+            <tr>
+              <td class="muted">{i + 1}</td>
+              <td>
+                <select class="mp-in" value={l.channel} onchange={(ev) => setChannel(l, ev.currentTarget.value as ChannelId)} aria-label="Channel">
+                  {#each Object.entries(CHANNELS) as [id, c] (id)}<option value={id}>{c.label}</option>{/each}
+                </select>
+              </td>
+              <td>
+                <input class="mp-in" bind:value={l.partner} list={surface ? `sellers-${surface}` : undefined} aria-label="Partner" />
+              </td>
+              <td><input class="mp-in wide-in" bind:value={l.tactic} aria-label="Tactic" /></td>
+              <td><input class="mp-in wide-in" bind:value={l.targeting} aria-label="Targeting" /></td>
+              <td><input class="mp-in" bind:value={l.kpi} aria-label="KPI" /></td>
+              <td>
+                <select class="mp-in" bind:value={l.buyType} aria-label="Buy type">
+                  {#each BUY_TYPES as b (b)}<option value={b}>{b}</option>{/each}
+                </select>
+              </td>
+              <td><input class="mp-in num rate" type="number" step="0.1" min="0" bind:value={l.rate} disabled={l.buyType === 'Flat' || l.buyType === 'TBD'} aria-label="Rate" /></td>
+              <td><input class="mp-in num money" type="number" step="1000" min="0" bind:value={l.budget} aria-label="Net budget" /></td>
+              <td class="r num">{totals.budget ? pct(l.budget / totals.budget, 1) : '—'}</td>
+              <td class="r num">{e.impressions ? Math.round(e.impressions).toLocaleString('en-CA') : '—'}</td>
+              <td class="r num">{e.clicks ? Math.round(e.clicks).toLocaleString('en-CA') : '—'}</td>
+              <td><button class="mp-link" onclick={() => removeLine(i)} aria-label="Remove line">remove</button></td>
+            </tr>
+          {/each}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td></td><td colspan="7">Total</td>
+            <td class="r num">{cad(totals.budget)}</td>
+            <td class="r num">100%</td>
+            <td class="r num">{Math.round(totals.impressions).toLocaleString('en-CA')}</td>
+            <td class="r num">{Math.round(totals.clicks).toLocaleString('en-CA')}</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    {#each ['sponsored_display', 'in_app', 'off_app', 'programmatic'] as s (s)}
+      <datalist id={`sellers-${s}`}>{#each sellers(s as SurfaceId) as name (name)}<option value={name}></option>{/each}</datalist>
+    {/each}
+    <div class="row-end">
+      <button onclick={addLine}>Add line</button>
+      <span class={budgetOk ? 'mp-ok' : 'mp-bad'}>
+        Check vs budget: {budgetOk ? 'OK' : `off by ${cad(totals.offBy)}`}
+      </span>
+    </div>
+  </section>
+
+  <section class="mp-card" data-tone={check && !check.deliverable ? 'bad' : undefined}>
+    <h2>3 · Can the retail and publisher lines be delivered? <span class="live" class:on={checking}>{checking ? 'Jev re-evaluating…' : 'Up to date'}</span></h2>
+    <p class="mp-note">
+      Retail onsite, in-app and publisher deals are finite: the bar behind each line is what actually
+      exists over this flight. Programmatic is not. CTV, social, search and audio are auctions, so they
+      are not part of this check.
+    </p>
+    {#if check}
+      <JevPanel
+        steps={jevSteps}
+        outcome={jevOutcome}
+        {delta}
+        meta={{ costUsd: check.costUsd, latencyMs: check.latencyMs, source: check.source }}
+        raw={{ state: planState, questions: [
+          { key: 'gate', type: 'noul', instructions: 'Is this media plan deliverable as specified?' },
+          { key: 'lever', type: 'choice', instructions: 'Which single change would best fix this plan before it goes to approval?', optionCount: Object.keys(check.distribution).length },
+          { key: 'severity', type: 'score', instructions: 'How much delivery risk does this plan carry as written?' }
+        ], answers: { deliverable: check.deliverableProbability, recommendation: check.recommendation, distribution: check.distribution, confidence: check.confidence, risk: check.riskScore } }}
+      />
+    {/if}
     <ul class="places">
-      {#each plan.placements as p, i (p.retailer + p.surface)}
+      {#each retail as l, i (l.id)}
         {@const s = planState?.placements?.[i]}
         {@const avail = s?.available_eur ?? 0}
-        {@const cap = Math.max(avail * 1.6, p.requestedEur * 1.2, 20000)}
+        {@const cap = Math.max(avail * 1.6, l.budget * 1.2, 20000)}
+        {@const surface = CHANNELS[l.channel].surface!}
         <li>
           <div class="ph">
-            <span class="surf" data-s={p.surface}>{SURFACES[p.surface].short}</span>
-            <strong>{p.retailer}</strong>
-            {#if s && !s.inventory_bounded}<span class="unb">unbounded supply</span>{/if}
-            <button class="rm" onclick={() => removePlacement(i)} aria-label="Remove">remove</button>
-          </div>
-          <div class="slider">
-            <input type="range" min="0" max={Math.round(cap)} step="1000"
-              value={p.requestedEur} oninput={(e) => setPlacement(i, +e.currentTarget.value)} />
-            <input class="numin" type="number" step="1000" min="0"
-              value={p.requestedEur} oninput={(e) => setPlacement(i, +e.currentTarget.value)} />
+            <span class="surf" data-s={surface}>{SURFACES[surface].short}</span>
+            <strong>{l.partner || 'No seller chosen'}</strong>
+            <span class="mp-muted">{l.tactic}</span>
+            <span class="ask-amt">{cad(l.budget)}</span>
           </div>
           {#if s}
             <div class="track">
               <div class="avail" style:width={`${Math.min(100, (avail / cap) * 100)}%`}></div>
-              <div class="ask" style:width={`${Math.min(100, (p.requestedEur / cap) * 100)}%`} data-over={p.requestedEur > avail && s.inventory_bounded}></div>
+              <div class="ask" style:width={`${Math.min(100, (l.budget / cap) * 100)}%`} data-over={l.budget > avail && s.inventory_bounded}></div>
             </div>
             <p class="pm">
-              {#if s.inventory_bounded}
-                available {eur(avail)} · asking {s.requested_over_available}×
-                {#if s.shortfall_eur > 0}<span class="bad">· {eur(s.shortfall_eur)} undeliverable</span>{/if}
+              {#if !s.inventory_bounded}
+                programmatic, always available at about {cad(s.typical_cpa_eur ?? 0, 2)} per acquisition
+              {:else if avail === 0}
+                <span class="mp-bad">not a known seller for {SURFACES[surface].label.toLowerCase()}, so no inventory can be confirmed</span>
               {:else}
-                offsite, always available at about ${s.typical_cpa_eur} per acquisition
+                available {cad(avail)} · asking {s.requested_over_available}×
+                {#if s.shortfall_eur > 0}<span class="mp-bad">· {cad(s.shortfall_eur)} undeliverable</span>{/if}
               {/if}
             </p>
           {/if}
         </li>
       {/each}
     </ul>
-    {#if planState}
-
-      <div class="tradeoff">
-        <div class="to" data-bad={planState.undeliverable_eur > 0}>
-          <span>Undeliverable</span>
-          <strong>{eur(planState.undeliverable_eur)}</strong>
-          <small>{(planState.undeliverable_pct * 100).toFixed(1)}% of budget with nowhere to go</small>
-        </div>
-        <div class="to" data-bad={planState.expected_cpa_vs_target_pct > 0}>
-          <span>Expected CPA</span>
-          <strong>${planState.expected_blended_cpa_eur}</strong>
-          <small>{planState.expected_cpa_vs_target_pct > 0 ? '+' : ''}{planState.expected_cpa_vs_target_pct}% vs the ${plan.targetCpaEur.toFixed(2)} target</small>
-        </div>
-        <p class="tonote">
-          These move against each other. Capping onsite fixes delivery and pushes budget onto more
-          expensive offsite inventory, so CPA rises. Jev's confidence falls when the two conflict,
-          which is the model declining to be sure about a judgment call.
-        </p>
-      </div>
+    {#if planState?.undeliverable_eur > 0}
+      <button class="mp-primary" onclick={applyFix}>Apply Jev's fix: cap finite lines, move {cad(planState.undeliverable_eur)} to programmatic</button>
     {/if}
-
-    <div class="prow">
-      <button onclick={addPlacement}>Add placement</button>
-      {#if planState?.undeliverable_eur > 0}
-        <button class="primary" onclick={autoBalance}>Apply Jev's fix: cap onsite, spill {eur(planState.undeliverable_eur)} to offsite</button>
-      {/if}
-      <span class="tot" class:bad={allocated !== plan.budgetEur}>
-        allocated {eur(allocated)} of {eur(plan.budgetEur)}
-        {#if allocated !== plan.budgetEur}({allocated > plan.budgetEur ? 'over' : 'under'} by {eur(Math.abs(allocated - plan.budgetEur))}){/if}
-      </span>
-    </div>
   </section>
 
-  <section class="card" data-tone={coverage.ready ? 'ok' : 'alert'}>
-    <h2>3 · Creative</h2>
-    <p class="note">
-      Every campaign needs an eligible asset for each surface it runs on, in the market language.
-      This is a gate, not a warning: the plan cannot be submitted without it.
+  <section class="mp-card" data-tone={coverage.ready ? 'ok' : 'alert'}>
+    <h2>4 · Creative and language</h2>
+    <p class="mp-note">
+      Every retail and publisher surface needs an eligible asset in English and French. This is a gate,
+      not a warning: the plan cannot be submitted without it.
     </p>
-
     <div class="drop">
       <input bind:this={fileInput} type="file" multiple accept="image/*,video/*,.json" onchange={onFiles} />
-      <span>Drop or choose creative. Format is read from the image dimensions and stays editable.</span>
+      <span>Add creative. Format is read from the image size; files ending in _fr are tagged French.</span>
     </div>
-
-    {#if plan.creatives.length === 0}
-      <p class="empty">No creative attached. Every surface below is blocked.</p>
-    {:else}
-      <ul class="creatives">
-        {#each plan.creatives as c, i (c.id)}
-          {@const wrong = !coverage.required.includes(c.language)}
-          <li class:flag={wrong}>
-            {#if thumbs[c.id]}<img src={thumbs[c.id]} alt="" />{:else}<span class="ph2">{c.format}</span>{/if}
-            <span class="fn">{c.filename}<small>{c.sizeKb}kb</small></span>
-            <label class="inline">format
-              <select value={c.format} onchange={(e) => setFormat(c, e.currentTarget.value as CreativeFormat)}>
-                {#each FORMATS as f (f)}<option value={f}>{f}</option>{/each}
-              </select>
-            </label>
-            <label class="inline">language
-              <select bind:value={c.language} onchange={() => reevaluate()}>
-                <option value="en">en</option><option value="fr-CA">fr-CA</option><option value="es">es</option>
-              </select>
-            </label>
-            <span class="el">{c.eligibleSurfaces.map((s) => SURFACES[s].short).join(', ')}</span>
-            <span class="fl">{wrong ? 'wrong market' : 'eligible'}</span>
-            <button class="rm" onclick={() => removeCreative(i)}>remove</button>
-          </li>
-        {/each}
-      </ul>
-    {/if}
-
+    <ul class="creatives">
+      {#each doc.plan.creatives as c, i (c.id)}
+        <li>
+          <span class="fn">{c.filename}<small>{c.sizeKb}kb</small></span>
+          <select class="mp-in" value={c.format} onchange={(e) => { c.format = e.currentTarget.value as CreativeFormat; c.eligibleSurfaces = FORMAT_SURFACES[c.format]; }} aria-label="Format">
+            {#each FORMATS as f (f)}<option value={f}>{f}</option>{/each}
+          </select>
+          <select class="mp-in" bind:value={c.language} aria-label="Language">
+            <option value="en">en</option><option value="fr-CA">fr-CA</option>
+          </select>
+          <span class="mp-muted el">{c.eligibleSurfaces.map((s) => SURFACES[s].short).join(', ')}</span>
+          <button class="mp-link" onclick={() => doc.plan.creatives.splice(i, 1)}>remove</button>
+        </li>
+      {/each}
+    </ul>
     <p class="cov" data-ok={coverage.ready}>
       {#if coverage.ready}
         Every requested surface is covered in {coverage.required.join(' and ')}.
       {:else}
         {#each coverage.gaps as g (g.language)}
-          <span class="gap">
-            Missing <strong>{g.language}</strong> creative for
-            {g.surfaces.map((s: SurfaceId) => SURFACES[s].label).join(', ')}.
-          </span>
+          <span class="gap">Missing <strong>{g.language}</strong> creative for {g.surfaces.map((s) => SURFACES[s].label).join(', ')}.</span>
         {/each}
-        {#if plan.market === 'CA' && coverage.missingLanguages.includes('fr-CA')}
-          <span class="legal">
-            This is a Canadian flight. French creative is a legal requirement for reaching Quebec
-            under the Charter of the French Language, so this plan cannot run as written.
-          </span>
+        {#if coverage.gaps.some((g) => g.language === 'fr-CA')}
+          <span class="legal">French creative is a legal requirement for reaching Quebec under the Charter of the French Language, so these lines cannot run there as planned.</span>
         {/if}
-      {/if}
-      {#if coverage.unusable.length}
-        · {coverage.unusable.length} asset(s) are not in a required language for this market.
       {/if}
     </p>
   </section>
 
-  <section class="card">
-    <h2>4 · Approval</h2>
+  <section class="mp-card">
+    <h2>5 · Notes and assumptions</h2>
+    <ul class="mp-list">
+      {#each doc.plan.notes as _, i (i)}
+        <li>
+          <textarea bind:value={doc.plan.notes[i]} rows="1" aria-label={`Note ${i + 1}`}></textarea>
+          <button class="mp-link" onclick={() => doc.plan.notes.splice(i, 1)}>remove</button>
+        </li>
+      {/each}
+    </ul>
+    <button onclick={() => doc.plan.notes.push('')}>Add note</button>
+  </section>
+
+  <section class="mp-card">
+    <h2>6 · Approval</h2>
     {#if trail.length}
       <ol class="trail">
-        {#each trail as t, i (i)}<li><strong>{t.stage}</strong><span class="by">{t.by}</span><span class="tn">{t.note}</span></li>{/each}
+        {#each trail as t, i (i)}<li><strong>{t.stage}</strong><span>{t.by}</span><span class="mp-muted">{t.note}</span></li>{/each}
       </ol>
     {/if}
-    <div class="actions">
+    <div class="mp-actions">
       {#if status === 'draft'}
-        <button class="primary" disabled={!submittable}
+        <button class="mp-primary" disabled={!submittable}
           onclick={() => advance(approvals.internal ? 'pending_internal' : 'approved', 'Submitted', MANAGER.name, approvals.reason)}>
           Submit for approval
         </button>
         {#if !submittable}
-          <span class="hint">
-            {!check?.deliverable ? 'Blocked: the plan is not deliverable as written.' : 'Blocked: creative gap.'}
-            Fix it above and this unlocks.
+          <span class="mp-warn small">
+            {!budgetOk ? 'Blocked: line items do not add up to the budget.' : !check?.deliverable ? 'Blocked: the plan is not deliverable as written.' : 'Blocked: creative gap.'}
           </span>
         {/if}
       {:else if status === 'pending_internal'}
-        <button class="primary" onclick={() => advance(approvals.client ? 'pending_client' : 'approved', 'Internal approval', 'Trading Director', 'Deliverability verified against supply')}>Approve as Trading Director</button>
+        <button class="mp-primary" onclick={() => advance(approvals.client ? 'pending_client' : 'approved', 'Internal approval', 'Trading Director', 'Deliverability verified against supply')}>Approve as Trading Director</button>
       {:else if status === 'pending_client'}
-        <button class="primary" onclick={() => advance('approved', 'Client approval', `${CLIENTS[plan.clientId as ClientId].name} marketing`, 'Policy and lever authority accepted')}>Record client approval</button>
+        <button class="mp-primary" onclick={() => advance('approved', 'Client approval', doc.plan.approval.name || plan.preparedFor, 'Plan and lever authority accepted')}>Record client approval</button>
       {:else if status === 'approved'}
-        <button class="primary" onclick={() => advance('live', 'Activated', 'Plumbline', 'Policy pushed to every surface. Nothing was re-keyed')}>Activate</button>
+        <button class="mp-primary" onclick={() => advance('live', 'Activated', 'Plumbline', 'Plan pushed to every platform. Nothing was re-keyed')}>Activate</button>
       {:else}
-        <p class="golive">Live. <a href={`${base}/today`}>Go to today’s queue</a></p>
+        <span class="mp-ok">Live.</span>
       {/if}
     </div>
+    <div class="mp-grid" style="margin-top: 0.8rem">
+      <label class="mp-field">Client approver name<input bind:value={doc.plan.approval.name} /></label>
+      <label class="mp-field">Title<input bind:value={doc.plan.approval.title} /></label>
+      <label class="mp-field">Date<input type="date" bind:value={doc.plan.approval.date} /></label>
+    </div>
   </section>
-  </div>
 
-  {#if rail.length}
-    <StatRail stats={rail} title="Plan health" />
-  {/if}
+  <div class="mp-next"><a class="next" href={`${base}/flowchart`}>Next: flight the budget by week →</a></div>
 </div>
 
 <style>
-  .shell { display: grid; grid-template-columns: minmax(0, 1fr) 232px; gap: 1.1rem; align-items: start; }
-  .shell > .top { grid-column: 1 / -1; }
-  .shell > .main { min-width: 0; }
-  @media (max-width: 900px) { .shell { grid-template-columns: 1fr; } }
-  .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 2rem; flex-wrap: wrap; }
-  .lede { color: var(--text-secondary); max-width: 80ch; margin: 0.4rem 0 1rem; font-size: 0.92rem; }
-  .live { font-size: 0.72rem; color: var(--text-muted); padding: 0.2rem 0.5rem; border-radius: 20px; background: var(--surface-2); white-space: nowrap; }
-  .live.on { background: color-mix(in srgb, var(--series-1) 18%, transparent); color: var(--series-1); font-weight: 600; }
-
   .stepper { list-style: none; display: flex; gap: 0.3rem; padding: 0; margin: 0 0 1rem; flex-wrap: wrap; align-items: center; }
   .stepper li { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; padding: 0.22rem 0.55rem; border-radius: 20px; background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--border); }
   .stepper li.done { background: color-mix(in srgb, var(--good) 15%, transparent); color: var(--good-text); }
@@ -536,77 +474,52 @@
   .sn { font-size: 0.64rem; font-weight: 700; }
   .stepper li.st { margin-left: auto; background: none; border: none; }
 
-  .card { padding: 1rem 1.15rem; margin-bottom: 0.9rem; background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius); }
-  .card[data-tone='alert'] { border-left: 3px solid var(--warning); }
-  .card[data-tone='ok'] { border-left: 3px solid var(--good); }
-  .card h2 { font-size: 0.9rem; margin-bottom: 0.6rem; }
-  .note { font-size: 0.78rem; color: var(--text-secondary); margin: 0 0 0.8rem; max-width: 88ch; }
+  .lines select { min-width: 9rem; }
+  .lines .wide-in { min-width: 13rem; }
+  .lines .rate { width: 5rem; }
+  .lines .money { width: 7.5rem; }
+  .lines input:not(.wide-in):not(.rate):not(.money) { min-width: 8rem; }
+  .row-end { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-top: 0.7rem; font-size: 0.82rem; }
 
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0.6rem; }
-  .grid .wide { grid-column: 1 / -1; }
-  label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
-  input, select { font: inherit; font-size: 0.85rem; text-transform: none; letter-spacing: normal; color: var(--text-primary); background: var(--surface-2); border: 1px solid var(--border); border-radius: 7px; padding: 0.35rem 0.5rem; }
-  input:focus, select:focus { outline: 2px solid var(--series-1); outline-offset: -1px; }
-  label.inline { flex-direction: row; align-items: center; gap: 0.3rem; font-size: 0.64rem; }
-  label.inline select { padding: 0.15rem 0.3rem; font-size: 0.75rem; }
+  .live { font-size: 0.68rem; font-weight: 500; color: var(--text-muted); padding: 0.15rem 0.5rem; border-radius: 20px; background: var(--surface-2); margin-left: 0.4rem; }
+  .live.on { background: color-mix(in srgb, var(--series-1) 18%, transparent); color: var(--series-1); font-weight: 600; }
 
-  .places { list-style: none; margin: 0 0 0.8rem; padding: 0; display: flex; flex-direction: column; gap: 0.8rem; }
-  .places li { padding: 0.6rem 0.7rem; background: var(--surface-2); border-radius: 8px; }
-  .ph { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
+  .places { list-style: none; margin: 0.8rem 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+  .places li { padding: 0.55rem 0.7rem; background: var(--surface-2); border-radius: 8px; }
+  .ph { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; font-size: 0.8rem; }
   .ph strong { font-size: 0.86rem; }
-  .unb { font-size: 0.7rem; color: var(--series-7); }
-  .rm { margin-left: auto; font-size: 0.68rem; padding: 0.12rem 0.4rem; color: var(--text-muted); }
-  .surf { font-size: 0.64rem; font-weight: 700; padding: 0.1rem 0.32rem; border-radius: 4px; text-transform: uppercase; }
+  .ask-amt { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .surf { font-size: 0.62rem; font-weight: 700; padding: 0.1rem 0.32rem; border-radius: 4px; text-transform: uppercase; }
   .surf[data-s='sponsored_display'] { background: color-mix(in srgb, var(--series-1) 16%, transparent); color: var(--series-1); }
   .surf[data-s='in_app'] { background: color-mix(in srgb, var(--series-3) 18%, transparent); color: var(--series-3); }
-  .surf[data-s='offsite'] { background: color-mix(in srgb, var(--series-7) 16%, transparent); color: var(--series-7); }
-
-  .slider { display: flex; gap: 0.6rem; align-items: center; }
-  .slider input[type='range'] { flex: 1; accent-color: var(--series-1); background: none; border: none; padding: 0; }
-  .numin { width: 7.5rem; font-variant-numeric: tabular-nums; }
-  .track { position: relative; height: 7px; background: var(--surface-3); border-radius: 4px; margin-top: 0.4rem; }
+  .surf[data-s='programmatic'] { background: color-mix(in srgb, var(--series-7) 16%, transparent); color: var(--series-7); }
+  .surf[data-s='off_app'] { background: color-mix(in srgb, var(--series-4) 16%, transparent); color: var(--series-4); }
+  .track { position: relative; height: 7px; background: var(--surface-3); border-radius: 4px; margin-top: 0.45rem; }
   .avail { position: absolute; inset: 0 auto 0 0; background: color-mix(in srgb, var(--good) 40%, transparent); border-radius: 4px; }
   .ask { position: absolute; top: 1px; bottom: 1px; left: 0; background: var(--series-1); border-radius: 3px; }
   .ask[data-over='true'] { background: var(--critical); }
   .pm { font-size: 0.73rem; color: var(--text-muted); margin: 0.3rem 0 0; font-variant-numeric: tabular-nums; }
-  .pm .bad { color: var(--critical); font-weight: 600; }
 
-  .tradeoff { display: flex; gap: 0.8rem; flex-wrap: wrap; align-items: flex-start; margin: 0.9rem 0; padding: 0.7rem 0.85rem; background: var(--surface-2); border-radius: 8px; }
-  .to { min-width: 150px; }
-  .to span { display: block; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
-  .to strong { font-size: 1.45rem; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: var(--good-text); }
-  .to[data-bad='true'] strong { color: var(--critical); }
-  .to small { display: block; font-size: 0.71rem; color: var(--text-secondary); }
-  .tonote { flex: 1 1 260px; font-size: 0.74rem; color: var(--text-muted); margin: 0; }
-  .prow { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
-  .tot { font-size: 0.78rem; color: var(--text-muted); font-variant-numeric: tabular-nums; margin-left: auto; }
-  .tot.bad { color: var(--serious); }
-  .primary { background: var(--series-1); border-color: var(--series-1); color: #fff; font-weight: 600; }
-  .primary:hover:not(:disabled) { filter: brightness(1.08); background: var(--series-1); }
-
-  .drop { display: flex; align-items: center; gap: 0.8rem; padding: 0.7rem 0.85rem; border: 1px dashed var(--axis); border-radius: 8px; margin-bottom: 0.8rem; }
-  .drop span { font-size: 0.76rem; color: var(--text-muted); }
-  .empty { font-size: 0.8rem; color: var(--critical); }
-
-  .creatives { list-style: none; margin: 0 0 0.7rem; padding: 0; display: flex; flex-direction: column; gap: 3px; }
-  .creatives li { display: grid; grid-template-columns: 44px 1fr auto auto auto auto auto; gap: 0.6rem; align-items: center; padding: 0.35rem 0.5rem; background: var(--surface-2); border-radius: 6px; font-size: 0.78rem; }
-  .creatives li.flag { background: color-mix(in srgb, var(--warning) 16%, transparent); }
-  .creatives img { width: 44px; height: 30px; object-fit: cover; border-radius: 3px; }
-  .ph2 { font-size: 0.58rem; color: var(--text-muted); text-align: center; }
-  .fn { font-family: ui-monospace, monospace; font-size: 0.74rem; display: flex; flex-direction: column; }
+  .drop { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; padding: 0.6rem 0.8rem; border: 1px dashed var(--axis); border-radius: 8px; margin-bottom: 0.7rem; }
+  .drop span { font-size: 0.75rem; color: var(--text-muted); }
+  .drop input { max-width: 100%; }
+  .creatives { list-style: none; margin: 0 0 0.6rem; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+  .creatives li { display: grid; grid-template-columns: minmax(0, 1fr) 8.5rem 5.5rem minmax(0, 12rem) auto; gap: 0.5rem; align-items: center; padding: 0.3rem 0.5rem; background: var(--surface-2); border-radius: 6px; font-size: 0.78rem; }
+  .fn { font-family: ui-monospace, monospace; font-size: 0.74rem; display: flex; flex-direction: column; overflow-wrap: anywhere; }
   .fn small { color: var(--text-muted); font-size: 0.66rem; }
-  .el, .fl { font-size: 0.7rem; color: var(--text-muted); }
-  .creatives li.flag .fl { color: var(--text-primary); font-weight: 600; }
+  .el { font-size: 0.7rem; }
   .cov { font-size: 0.8rem; margin: 0; color: var(--critical); }
-  .gap { display: block; }
-  .legal { display: block; margin-top: 0.3rem; color: var(--critical); font-weight: 600; }
   .cov[data-ok='true'] { color: var(--good-text); }
+  .gap { display: block; }
+  .legal { display: block; margin-top: 0.3rem; font-weight: 600; }
 
   .trail { list-style: none; margin: 0 0 0.8rem; padding: 0; display: flex; flex-direction: column; gap: 0.3rem; }
-  .trail li { display: grid; grid-template-columns: 13rem 14rem 1fr; gap: 0.6rem; font-size: 0.78rem; padding: 0.3rem 0.5rem; background: var(--surface-2); border-radius: 5px; }
-  .by { color: var(--text-secondary); }
-  .tn { color: var(--text-muted); }
-  .actions { display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap; }
-  .hint { font-size: 0.75rem; color: var(--serious); }
-  .golive { font-size: 0.85rem; color: var(--good-text); margin: 0; }
+  .trail li { display: grid; grid-template-columns: 11rem 12rem 1fr; gap: 0.6rem; font-size: 0.78rem; padding: 0.3rem 0.5rem; background: var(--surface-2); border-radius: 5px; }
+  .small { font-size: 0.76rem; }
+  .next { font-weight: 600; font-size: 0.9rem; }
+
+  @media (max-width: 700px) {
+    .creatives li { grid-template-columns: 1fr 1fr; }
+    .trail li { grid-template-columns: 1fr; gap: 0.1rem; }
+  }
 </style>

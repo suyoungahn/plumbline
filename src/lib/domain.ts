@@ -31,9 +31,9 @@ export const LEVERS: Record<LeverId, { label: string; meaning: string; agencyAut
       agencyAuthority: true
     },
     spill_to_offsite: {
-      label: 'Spill to offsite',
+      label: 'Spill to programmatic',
       meaning:
-        'Move allocation that a finite-supply onsite surface cannot deliver onto offsite inventory, knowingly accepting a higher cost per outcome in order to recover the delivery',
+        'Move allocation that a finite-supply surface (retailer onsite, retailer in-app or an off-app publisher deal) cannot deliver onto programmatic inventory, knowingly accepting a higher cost per outcome in order to recover the delivery',
       agencyAuthority: true
     },
     expand_audience: {
@@ -71,7 +71,7 @@ export function severityLabel(score: number): string {
 
 export type LineItem = {
   id: string;
-  platform: 'DV360' | 'The Trade Desk' | 'Retail Media';
+  platform: 'DV360' | 'The Trade Desk' | 'Retail Media' | 'Publisher direct';
   audience: string;
   placement: string;
   shareOfSpend: number;

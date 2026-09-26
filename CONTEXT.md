@@ -1,6 +1,6 @@
 # CONTEXT
 
-Glossary for Plumbline, an agent-first campaign operating system for media agencies. Market: United States and Canada. All monetary values USD.
+Glossary for Plumbline, an agent-first campaign operating system for media agencies. Market: Canada, including Quebec. All clients are Canada-based and all monetary values are Canadian dollars (CA$). Jev bills in US dollars; decision costs are converted at a fixed 1.37.
 Terms here are both type names in the code and demo vocabulary. If a word appears
 on screen it should appear here first.
 
@@ -32,6 +32,77 @@ LineItems.
 **LineItem**
 One addressable unit of delivery: a platform, an audience and a placement, with
 its own spend share and performance. Levers act on LineItems, not on Campaigns.
+
+## Channels
+
+The four places a plan can spend. The first three are finite; only programmatic is not.
+
+**Sponsored display** (onsite)
+Ads on retailer websites: search, category and product pages. Highest intent,
+lowest CPA, and it runs out.
+
+**In-app**
+Ad slots inside retailer apps, such as PC Optimum or the Walmart app: flyer, search
+and basket placements. The agency does not own an app; it buys these slots through
+each retailer's media network.
+
+**Off-app**
+Publisher sites the agency buys direct, such as Taboola, The Globe and Mail, The New
+York Times and La Presse. Finite per deal, mid-range CPA, and each publisher has its
+own creative specs and language (La Presse is French only).
+
+**Programmatic**
+The Trade Desk and DV360, extending retailer audiences across the open web and CTV.
+Effectively unbounded, always the most expensive per outcome. The release valve when
+the finite channels underfill.
+
+## Campaign flow
+
+**Media plan**
+The brief plus one line item per buy: channel, partner, tactic, targeting, KPI, buy
+type (CPM, CPC, flat), net rate and net budget. Estimated impressions are budget ÷ CPM
+× 1,000; estimated clicks are budget ÷ CPC.
+
+**Funnel role**
+How a line is judged. Performance lines are held to the CPA target; awareness lines
+(CTV, online video, audio, podcast) are measured on reach, because last-touch CPA
+understates them; non-working lines (ad serving, verification) and the held reserve
+are neither.
+
+**Flowchart**
+The weekly spread of the budget: one weight per week, applied to every line that is
+not held. Held lines, like the test and learn reserve, stay unflighted until the
+client releases them.
+
+**Planned to date**
+Each flowchart week prorated by how much of it has elapsed. **Pacing** is actual spend
+÷ planned to date, and a line is over- or under-pacing outside the 90 to 110 percent
+band.
+
+**Weekly report**
+The client-facing status report: headline numbers, summary, performance by channel,
+cost per conversion against target, what changed, decisions needed, and what is
+coming up. The draft is written from the numbers; nothing in it is generated.
+
+## Search
+
+**Search term**
+What a shopper actually typed into retailer search, onsite or in-app, that caused an
+ad to show. Different from the keyword the agency bid on.
+
+**Keyword** and **match type**
+What the agency bids on. Exact match shows only for that term; phrase and broad match
+also show for related searches, which is where search terms come from.
+
+**Negative keyword**
+A term the ads must not show for. The main tool for stopping wasted spend.
+
+**Search-term triage**
+Reading the search-term report and deciding, term by term, whether to promote,
+negate, re-bid or leave each one. Jev asks the same three typed questions of every
+term, and only the exceptions reach the campaign manager: competitor and
+private-label brands, brand-safety terms, and material spend where the answer is
+genuinely unclear.
 
 ## Decisions
 

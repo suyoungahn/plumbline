@@ -41,7 +41,7 @@
   </div>
 
   <p class="footer-note">
-    {ADVERTISER.brand} · {ADVERTISER.market} · ${POLICY.budgetEur.toLocaleString()} over {POLICY.flightDays} days
+    {ADVERTISER.brand} · {ADVERTISER.market} · CA${POLICY.budgetEur.toLocaleString()} over {POLICY.flightDays} days
   </p>
 </div>
 

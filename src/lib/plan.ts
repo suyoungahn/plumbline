@@ -27,7 +27,7 @@ export const OBJECTIVES: Record<ObjectiveType, { label: string; primaryMetric: s
   launch: { label: 'Launch', primaryMetric: 'Reach at frequency', note: 'Coverage and frequency, CPA is a guardrail not a goal' }
 };
 
-export type CreativeFormat = '300x250' | '728x90' | '160x600' | 'app_native' | 'video_15s';
+export type CreativeFormat = '300x250' | '728x90' | '160x600' | 'app_native' | 'web_native' | 'video_15s';
 
 export type CreativeAsset = {
   id: string;
@@ -42,11 +42,12 @@ export type CreativeAsset = {
 };
 
 export const FORMAT_SURFACES: Record<CreativeFormat, SurfaceId[]> = {
-  '300x250': ['sponsored_display', 'in_app', 'offsite'],
-  '728x90': ['sponsored_display', 'offsite'],
-  '160x600': ['offsite'],
+  '300x250': ['sponsored_display', 'in_app', 'off_app', 'programmatic'],
+  '728x90': ['sponsored_display', 'off_app', 'programmatic'],
+  '160x600': ['off_app', 'programmatic'],
   app_native: ['in_app'],
-  video_15s: ['offsite']
+  web_native: ['off_app'],
+  video_15s: ['off_app', 'programmatic']
 };
 
 export type PlacementRequest = {
@@ -72,9 +73,9 @@ export type PlanDraft = {
 
 export function approvalsRequired(budgetEur: number): { internal: boolean; client: boolean; reason: string } {
   if (budgetEur >= 150_000)
-    return { internal: true, client: true, reason: 'Over 150,000 EUR requires trading director and client sign-off' };
+    return { internal: true, client: true, reason: 'Over CA$150,000 requires trading director and client sign-off' };
   if (budgetEur >= 50_000)
-    return { internal: true, client: false, reason: 'Over 50,000 EUR requires trading director sign-off' };
+    return { internal: true, client: false, reason: 'Over CA$50,000 requires trading director sign-off' };
   return { internal: false, client: false, reason: 'Within the campaign manager mandate' };
 }
 

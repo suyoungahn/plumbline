@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { decisionCost } from '$lib/money';
   import { base } from '$app/paths';
   import { onMount } from 'svelte';
   import { LEVERS, type LeverId } from '$lib/domain';
@@ -32,7 +33,7 @@
   });
 
   const eur = (n: number) =>
-    n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(2)}M` : n >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${n}`;
+    n >= 1_000_000 ? `CA$${(n / 1_000_000).toFixed(2)}M` : n >= 1000 ? `CA$${(n / 1000).toFixed(1)}k` : `CA$${n}`;
 
   const queue = $derived(
     rows
@@ -78,13 +79,13 @@
         <div><dt>Under management</dt><dd>{eur(summary.underManagement as number)}</dd></div>
         <div><dt>Spend at risk</dt><dd class="risk">{eur(summary.spendAtRisk as number)}</dd></div>
         <div><dt>Underfilled</dt><dd class="risk">{eur(summary.underfill as number)}</dd></div>
-        <div><dt>Cost to decide</dt><dd>${summary.decisionCostUsd}</dd></div>
+        <div><dt>Cost to decide</dt><dd>{decisionCost(summary.decisionCostUsd as number)}</dd></div>
       </dl>
     </section>
 
     <p class="claim">
       Every campaign in this book was evaluated this morning for
-      <strong>${summary.decisionCostUsd}</strong>. {summary.handled} of {summary.campaigns} cleared
+      <strong>{decisionCost(summary.decisionCostUsd as number)}</strong>. {summary.handled} of {summary.campaigns} cleared
       on their own. {MANAGER.name} reads {summary.needsHuman}.
       <span class="muted">This book used to need {MANAGER.bookUsedToNeed} people.</span>
       {#if summary.source === 'sim'}
@@ -117,7 +118,7 @@
               </span>
               <span class="meta">
                 day {r.campaign.day}/{r.campaign.flightDays} ·
-                CPA {r.campaign.metrics.cpa.toFixed(2)} vs {r.campaign.targetCpaEur.toFixed(2)} ·
+                CPA CA${r.campaign.metrics.cpa.toFixed(2)} vs CA${r.campaign.targetCpaEur.toFixed(2)} ·
                 pacing {r.campaign.metrics.pacing.toFixed(2)}
               </span>
             </div>

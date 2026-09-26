@@ -65,7 +65,7 @@ function stateFor(c: Campaign) {
     lines_above_target_cpa: c.lines.filter((l) => l.cpaEur > c.targetCpaEur).length,
     lines_underfilling: c.lines.filter((l) => l.deliveredEur < l.allocatedEur * 0.9).length,
     lines_overbidding: c.lines.filter((l) => l.bidVsJustified > 1.05).length,
-    offsite_cpa_eur: c.lines.find((l) => l.surface === 'offsite')?.cpaEur ?? null,
+    programmatic_cpa_eur: c.lines.find((l) => l.surface === 'programmatic')?.cpaEur ?? null,
     cheapest_line_cpa_eur: Math.min(...c.lines.map((l) => l.cpaEur)),
 
     attributed_sales_eur: m.attributedSales,
@@ -107,9 +107,9 @@ function leverCriteria(): Record<string, string> {
 
 const LEVER_INSTRUCTIONS = [
   'Which single lever best corrects this campaign against its objective?',
-  'Onsite surfaces (sponsored display, in-app) have FINITE supply. A fill rate well below 1 means the inventory does not exist, so bidding harder and shifting more budget in will not help. Offsite supply is effectively unbounded and always costs more per outcome.',
+  'Retailer onsite (sponsored display), retailer in-app and off-app publisher deals all have FINITE supply. A fill rate well below 1 means the inventory does not exist, so bidding harder and shifting more budget in will not help. Programmatic supply (The Trade Desk, DV360) is effectively unbounded and always costs more per outcome.',
   'Shift budget only when a line at or under target CPA still has fill headroom to absorb it.',
-  'Spill to offsite when a finite-supply line cannot deliver its allocation and recovering that delivery is worth the higher cost per outcome that offsite charges. Do not spill when doing so would push blended CPA past the target, because that trades a delivery problem for a cost problem.',
+  'Spill to programmatic when a finite-supply line cannot deliver its allocation and recovering that delivery is worth the higher cost per outcome that programmatic charges. Do not spill when doing so would push blended CPA past the target, because that trades a delivery problem for a cost problem.',
   'Adjust bid when bid_vs_cpa_justified is away from 1.',
   'Read spend_at_risk_pct, not just blended CPA. A blended average at target can still conceal a third of spend running at double target on one line, and that line is the decision.',
   'Click through rate is a WEAK signal and must never justify a lever on its own. A falling CTR with sharply rising frequency is audience exhaustion, not creative wearout, and swapping the creative will not fix it. Swap creative only when CTR has fallen while frequency stayed roughly flat, which is the frequency-matched case.',
@@ -171,7 +171,7 @@ function pickSurface(lever: LeverId, c: Campaign): string | undefined {
   const byUnderfill = [...c.lines].sort(
     (a, b) => b.allocatedEur - b.deliveredEur - (a.allocatedEur - a.deliveredEur)
   );
-  const byCtr = [...c.lines].sort((a, b) => a.ctr - b.ctr);
+  const byCtr = [...c.lines].sort((a, b) => a.ctrChangePct - b.ctrChangePct);
   const byBid = [...c.lines].sort((a, b) => b.bidVsJustified - a.bidVsJustified);
 
   switch (lever) {
@@ -185,7 +185,7 @@ function pickSurface(lever: LeverId, c: Campaign): string | undefined {
     case 'swap_creative':
       return byCtr[0]?.surface;
     case 'expand_audience':
-      return 'offsite';
+      return 'programmatic';
     default:
       return undefined;
   }

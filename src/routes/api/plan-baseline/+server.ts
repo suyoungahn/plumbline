@@ -11,7 +11,7 @@ import type { ChoiceAnswer, NoulAnswer, ScoreAnswer } from '$lib/jev-types';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async () => {
-  const result = await askJev(stateFor(DRAFT), planQuestions(), {});
+  const result = await askJev(stateFor(DRAFT), planQuestions(), { fixture: 'plan-baseline' });
   const gate = result.answers.gate as NoulAnswer;
   const lever = result.answers.lever as ChoiceAnswer;
   const severity = result.answers.severity as ScoreAnswer;

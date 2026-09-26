@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { decisionCost } from '$lib/money';
   import { base } from '$app/paths';
   import { onMount } from 'svelte';
 
@@ -71,7 +72,7 @@
     <section class="cards">
       <div><dt>Calls</dt><dd>{a.calls}</dd><small>{a.questionsPerCall} questions each</small></div>
       <div><dt>Decisions</dt><dd>{a.calls * a.questionsPerCall}</dd><small>typed answers returned</small></div>
-      <div><dt>Total cost</dt><dd>${a.totalCostUsd}</dd><small>${a.meanCostUsd} per call</small></div>
+      <div><dt>Total cost</dt><dd>{decisionCost(a.totalCostUsd)}</dd><small>{decisionCost(a.meanCostUsd)} per call</small></div>
       <div><dt>Median latency</dt><dd>{a.medianLatencyMs}ms</dd><small>max {a.maxLatencyMs}ms</small></div>
       <div><dt>Input tokens</dt><dd>{a.totalInputTokens.toLocaleString()}</dd><small>output billed at zero</small></div>
       <div><dt>Gate opened</dt><dd>{a.gateOpen}<span class="of">/{a.calls}</span></dd><small>{a.gateShut} raised nothing</small></div>
@@ -154,7 +155,7 @@
             <td class="r num">{c.leverConfidence?.toFixed(2)}</td>
             <td class="r num">{c.severity?.toFixed(2) ?? '—'}</td>
             <td class="r num muted">{c.usage?.input_tokens ?? '—'}</td>
-            <td class="r num muted">${(c.usage?.cost ?? 0).toFixed(6)}</td>
+            <td class="r num muted">{decisionCost(c.usage?.cost ?? 0)}</td>
             <td class="r num muted">{c.latencyMs || '—'}</td>
             <td class="num small">
               {#if c.baseline}
