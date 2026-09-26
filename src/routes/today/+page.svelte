@@ -5,6 +5,10 @@
   import { LEVERS, type LeverId } from '$lib/domain';
   import { SURFACES, type SurfaceId } from '$lib/placements';
   import { CLIENTS, MANAGER, type ClientId } from '$lib/portfolio';
+  import { campaignById } from '$lib/scenario/campaigns';
+  import { RECORD_IDS, records } from '$lib/mediaplan/store.svelte';
+  import { localSuggestions } from '$lib/mediaplan/pacing-jev';
+  import { cad, lineName, paceAll, pct } from '$lib/mediaplan/calc';
 
   type Row = {
     campaign: {
@@ -20,6 +24,19 @@
   };
 
   let rows = $state<Row[]>([]);
+  let termSummary = $state<{ needsHuman: number; terms: number; campaigns: number } | null>(null);
+
+  // Campaigns planned in Plumbline have no recorded decision yet; their pacing lines
+  // are read by the stand-in instead, so they still reach the inbox.
+  const planned = $derived(
+    RECORD_IDS.filter((id) => !campaignById(id)).map((id) => {
+      const rec = records[id];
+      const flagged = localSuggestions(rec.plan, rec.pacing)
+        .map((s, i) => ({ s, line: rec.plan.lines[i] }))
+        .filter((x) => x.s.needsYou);
+      return { id, rec, flagged };
+    }).filter((x) => x.flagged.length)
+  );
   let summary = $state<Record<string, number | string> | null>(null);
   let loading = $state(true);
   let showCleared = $state(false);
@@ -30,6 +47,11 @@
     rows = j.rows;
     summary = j.summary;
     loading = false;
+    try {
+      termSummary = (await (await fetch(`${base}/api/keywords/all`)).json()).summary;
+    } catch {
+      termSummary = null;
+    }
   });
 
   const eur = (n: number) =>
@@ -51,7 +73,7 @@
 <div class="page">
   <header class="top">
     <div>
-      <span class="eyebrow">{MANAGER.role} · {MANAGER.agency}</span>
+      <span class="eyebrow">Inbox · {MANAGER.role} · {MANAGER.agency}</span>
       <h1>{MANAGER.name}</h1>
     </div>
     {#if summary}
@@ -96,6 +118,7 @@
     <h2 class="section-head">Needs a decision</h2>
     <ul class="queue">
       {#each queue as r (r.campaign.id)}
+        {@const t = paceAll(records[r.campaign.id].plan, records[r.campaign.id].pacing)}
         <li>
           <a class="card" href={`${base}/campaign/${r.campaign.id}`}>
             <div class="card-top">
@@ -118,8 +141,8 @@
               </span>
               <span class="meta">
                 day {r.campaign.day}/{r.campaign.flightDays} ·
-                CPA CA${r.campaign.metrics.cpa.toFixed(2)} vs CA${r.campaign.targetCpaEur.toFixed(2)} ·
-                pacing {r.campaign.metrics.pacing.toFixed(2)}
+                CPA {t.cpa === null ? '—' : cad(t.cpa, 2)} vs {cad(r.campaign.targetCpaEur, 2)} ·
+                {t.pacing === null ? '—' : pct(t.pacing)} of plan
               </span>
             </div>
 
@@ -142,6 +165,31 @@
         </li>
       {/each}
     </ul>
+
+    {#if planned.length || termSummary?.needsHuman}
+      <h2 class="section-head">Also waiting on you</h2>
+      <ul class="queue">
+        {#each planned as x (x.id)}
+          <li>
+            <a class="card small" href={`${base}/campaign/${x.id}/pacing`}>
+              <span class="client">{x.rec.plan.client}</span>
+              <strong class="cname">{x.rec.plan.campaign}: {x.flagged.length} pacing {x.flagged.length === 1 ? 'line' : 'lines'} to review</strong>
+              <p class="why">{x.flagged.map((f) => `${lineName(f.line)}: ${LEVERS[f.s.lever].label.toLowerCase()}`).join(' · ')}</p>
+              <span class="badge sim">Heuristic stand-in, not Jev</span>
+            </a>
+          </li>
+        {/each}
+        {#if termSummary?.needsHuman}
+          <li>
+            <a class="card small" href={`${base}/keywords`}>
+              <span class="client">Retail search · {termSummary.campaigns} campaigns</span>
+              <strong class="cname">{termSummary.needsHuman} search terms need you</strong>
+              <p class="why">Competitor and store-brand terms, brand-safety terms, and high-spend terms where the answer is unclear. The other {(termSummary.terms - termSummary.needsHuman).toLocaleString()} were handled.</p>
+            </a>
+          </li>
+        {/if}
+      </ul>
+    {/if}
 
     <button class="reveal" onclick={() => (showCleared = !showCleared)}>
       {showCleared ? 'Hide' : 'Show'} the {cleared.length} that cleared without you
@@ -203,6 +251,8 @@
     border-left: 3px solid var(--serious); border-radius: var(--radius);
   }
   .card:hover { background: var(--hover); }
+  .card.small { border-left-color: var(--warning); }
+  .card.small .why { margin-bottom: 0.4rem; }
   .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
   .client { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); display: block; }
   .cname { font-size: 1rem; letter-spacing: -0.01em; }

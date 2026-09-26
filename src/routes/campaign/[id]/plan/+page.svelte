@@ -9,7 +9,9 @@
   import { GATE_THRESHOLD } from '$lib/domain';
   import { planLeverLabel, planQuestions, stateFor as planStateFor } from '$lib/plan-eval';
   import { simulate } from '$lib/heuristic';
-  import { doc, newLineId, resetCampaign } from '$lib/mediaplan/store.svelte';
+  import { page } from '$app/state';
+  import { records, newLineId, resetCampaign } from '$lib/mediaplan/store.svelte';
+  const doc = $derived(records[page.params.id!]);
   import { CHANNELS, type BuyType, type ChannelId, type PlanLine } from '$lib/mediaplan/types';
   import { cad, estimates, fitWeeks, flightDays, pct, planTotals, weekCount } from '$lib/mediaplan/calc';
   import { retailLines, toPlanDraft } from '$lib/mediaplan/deliverability';
@@ -209,8 +211,7 @@
 <div class="page">
   <header class="mp-top">
     <div>
-      <span class="eyebrow">Step 1 of 4 · {plan.client}</span>
-      <h1>Media plan</h1>
+      <h2 class="tab-title">Media plan</h2>
       <p class="lede">
         Fill in the brief and the line items. Everything else, from estimated delivery to the weekly
         flowchart and the client workbook, is calculated from these fields. Jev checks whether the
@@ -218,7 +219,7 @@
       </p>
     </div>
     <div class="mp-actions">
-      <button onclick={() => confirm('Discard your edits and reload the sample campaign?') && resetCampaign()}>Reset to sample</button>
+      <button onclick={() => confirm('Discard your edits to this campaign?') && resetCampaign(page.params.id!)}>Reset this campaign</button>
       <button class="mp-primary" onclick={exportXlsx} disabled={exporting}>{exporting ? 'Building…' : 'Download media plan (.xlsx)'}</button>
     </div>
   </header>
@@ -463,7 +464,7 @@
     </div>
   </section>
 
-  <div class="mp-next"><a class="next" href={`${base}/flowchart`}>Next: flight the budget by week →</a></div>
+  <div class="mp-next"><a class="next" href={`${base}/campaign/${page.params.id}/flowchart`}>Next: flight the budget by week →</a></div>
 </div>
 
 <style>

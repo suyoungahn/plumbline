@@ -1,7 +1,9 @@
 <script lang="ts">
   import Rich from '$lib/components/Rich.svelte';
   import CpaChart from '$lib/components/CpaChart.svelte';
-  import { doc, ready } from '$lib/mediaplan/store.svelte';
+  import { page } from '$app/state';
+  import { records, ready } from '$lib/mediaplan/store.svelte';
+  const doc = $derived(records[page.params.id!]);
   import { cad, cadK, compact, lineName, paceAll, pct, shortDate, signedPct } from '$lib/mediaplan/calc';
   import { CHANNELS } from '$lib/mediaplan/types';
   import { draftComingUp, draftHeadline, draftSummary } from '$lib/mediaplan/report-draft';
@@ -47,8 +49,7 @@
 <div class="page">
   <header class="mp-top no-print">
     <div>
-      <span class="eyebrow">Step 4 of 4 · Client-facing</span>
-      <h1>Weekly report</h1>
+      <h2 class="tab-title">Weekly report</h2>
       <p class="lede">
         The numbers come straight from Plan and Pacing. The words start as a draft written from those
         numbers, which you edit before sending; nothing is invented. Print it or save it as a PDF.

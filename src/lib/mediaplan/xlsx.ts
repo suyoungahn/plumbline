@@ -241,7 +241,7 @@ export async function buildWorkbook(plan: MediaPlan, pacing: Pacing): Promise<Bl
     c.value = f(`Flowchart!${wc(i)}4`, toDate(weekStart(plan, i)));
     c.numFmt = DATE;
     const e = pt.getCell(4, 5 + i);
-    e.value = f(`MAX(0,MIN(1,($B$3-${pc(i)}3+1)/7))`, elapsed[i]);
+    e.value = f(`MAX(0,MIN(1,($B$3-${pc(i)}3+1)/MIN(7,$B$5-${pc(i)}3+1)))`, elapsed[i]);
     e.numFmt = PCT;
   });
 
@@ -264,7 +264,7 @@ export async function buildWorkbook(plan: MediaPlan, pacing: Pacing): Promise<Bl
     pt.getCell(row, 8).value = f(`IFERROR(E${row}/C${row},0)`, p.spentPct);
     pt.getCell(row, 9).value = f(`C${row}-E${row}`, p.remaining);
     input(pt.getCell(row, 10), a.yesterday, MONEY);
-    pt.getCell(row, 11).value = f(`IFERROR(INDEX(Flowchart!D${fr}:${lastW}${fr},MATCH($B$3,$E$3:$${lastP}$3,1))/7,0)`, p.dailyTarget);
+    pt.getCell(row, 11).value = f(`IFERROR(INDEX(Flowchart!D${fr}:${lastW}${fr},MATCH($B$3,$E$3:$${lastP}$3,1))/MIN(7,$B$5-INDEX($E$3:$${lastP}$3,MATCH($B$3,$E$3:$${lastP}$3,1))+1),0)`, p.dailyTarget);
     input(pt.getCell(row, 12), a.impressions, INT);
     input(pt.getCell(row, 13), a.conversions, INT);
     pt.getCell(row, 14).value = f(`IF(M${row}=0,"-",E${row}/M${row})`, p.cpa ?? '-');
@@ -285,7 +285,7 @@ export async function buildWorkbook(plan: MediaPlan, pacing: Pacing): Promise<Bl
       pt.getCell(`${c}${row}`).numFmt = fmt;
   }
   pt.getCell(prTot + 2, 1).value = 'Legend: blue text / yellow fill = update daily from platform UIs. Everything else calculates.';
-  pt.getCell(prTot + 3, 1).value = "Planned to Date prorates each week of the Flowchart by days elapsed. Pacing % = Actual ÷ Planned. Daily Target = current week's flighted spend ÷ 7.";
+  pt.getCell(prTot + 3, 1).value = "Planned to Date prorates each week of the Flowchart by days elapsed. Pacing % = Actual ÷ Planned. Daily Target = current week's flighted spend ÷ its days.";
   [26, 22, 12, 14, 14, 10, 12, 10, 14, 12, 12, 13, 10, 10, 10, 60].forEach((w, i) => (pt.getColumn(i + 1).width = w));
 
   const buf = await wb.xlsx.writeBuffer();

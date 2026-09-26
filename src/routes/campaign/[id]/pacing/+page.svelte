@@ -1,11 +1,12 @@
 <script lang="ts">
   import { base } from '$app/paths';
-  import { GATE_THRESHOLD, LEVERS, type LeverId } from '$lib/domain';
-  import { simulate } from '$lib/heuristic';
-  import { doc } from '$lib/mediaplan/store.svelte';
+  import { LEVERS } from '$lib/domain';
+  import { page } from '$app/state';
+  import { records } from '$lib/mediaplan/store.svelte';
+  const doc = $derived(records[page.params.id!]);
   import { CHANNELS } from '$lib/mediaplan/types';
   import { cad, pct, paceAll, shortDate, signedPct } from '$lib/mediaplan/calc';
-  import { PACING_QUESTIONS, pacingLineState, type LineSuggestion } from '$lib/mediaplan/pacing-jev';
+  import { localSuggestions, pacingLineState, type LineSuggestion } from '$lib/mediaplan/pacing-jev';
   import { downloadWorkbook } from '$lib/mediaplan/xlsx';
 
   const plan = $derived(doc.plan);
@@ -21,22 +22,6 @@
     for (const l of doc.plan.lines) ensureActual(l.id);
   });
 
-  function localSuggestions(states: Record<string, unknown>[]): LineSuggestion[] {
-    return states.map((s) => {
-      const a = simulate(s, PACING_QUESTIONS).answers;
-      const gate = a.gate.noul as number;
-      return {
-        gateProbability: gate,
-        needsYou: gate >= GATE_THRESHOLD,
-        lever: a.lever.choice as LeverId,
-        confidence: a.lever.confidence as number,
-        severity: a.severity.score as number,
-        costUsd: 0,
-        source: 'sim'
-      };
-    });
-  }
-
   let timer: ReturnType<typeof setTimeout> | undefined;
   $effect(() => {
     const states = t.rows.map((r) => pacingLineState(plan, doc.pacing, r));
@@ -48,11 +33,12 @@
         if (!res.ok) throw new Error(String(res.status));
         suggestions = (await res.json()).suggestions;
       } catch {
-        suggestions = localSuggestions(states);
+        suggestions = localSuggestions(doc.plan, doc.pacing);
       }
     }, 450);
   });
 
+  const hasBooked = $derived(Object.values(doc.pacing.actuals).some((a) => a.booked));
   const needsYou = $derived(suggestions.filter((s) => s.needsYou).length);
   const source = $derived(suggestions[0]?.source ?? 'sim');
 
@@ -69,8 +55,7 @@
 <div class="page">
   <header class="mp-top">
     <div>
-      <span class="eyebrow">Step 3 of 4 · Internal, not for client distribution</span>
-      <h1>Daily pacing</h1>
+      <h2 class="tab-title">Daily pacing</h2>
       <p class="lede">
         Enter yesterday's platform numbers each morning. Planned-to-date prorates the flowchart by days
         elapsed, so every line is judged against where it should be today. Jev reads each line and says
@@ -91,7 +76,7 @@
       <label class="mp-field">Under-pace below (%)
         <input type="number" step="1" value={Math.round(doc.pacing.underPace * 100)} oninput={(e) => (doc.pacing.underPace = +e.currentTarget.value / 100)} />
       </label>
-      <div class="mp-field">Target CPA<span class="static">{cad(plan.targetCpa, 2)} <a href={`${base}/plan`}>edit in Plan</a></span></div>
+      <div class="mp-field">Target CPA<span class="static">{cad(plan.targetCpa, 2)} <a href={`${base}/campaign/${page.params.id}/plan`}>edit in Plan</a></span></div>
     </div>
     <dl class="tiles">
       <div><dt>Day</dt><dd>{t.daysElapsed} of {t.flightDays}</dd><small>{t.daysRemaining} days remaining</small></div>
@@ -111,7 +96,7 @@
         <thead>
           <tr>
             <th>Line</th><th class="r">Net budget</th><th class="r">Planned to date</th><th class="r">Actual to date</th>
-            <th class="r">Pacing</th><th>Status</th><th class="r">Remaining</th><th class="r">Yesterday</th><th class="r">Daily target</th>
+            <th class="r">Pacing</th><th>Status</th>{#if hasBooked}<th class="r">Fill</th>{/if}<th class="r">Remaining</th><th class="r">Yesterday</th><th class="r">Daily target</th>
             <th class="r">Impressions</th><th class="r">{plan.conversionName}s</th><th class="r">CPA</th><th class="r">vs target</th>
             <th>Jev suggests</th><th>Action / notes</th>
           </tr>
@@ -128,6 +113,9 @@
                 <td><input class="mp-in num input-cell money" type="number" min="0" step="100" bind:value={a.spend} aria-label="Actual spend" /></td>
                 <td class="r num">{r.pacing === null ? 'n/a' : pct(r.pacing)}</td>
                 <td><span class="mp-pill" data-s={r.status}>{r.status}</span></td>
+                {#if hasBooked}
+                  <td class="r num" class:mp-warn={!!a.booked && a.spend / a.booked < 0.9}>{a.booked ? pct(a.spend / a.booked) : '—'}</td>
+                {/if}
                 <td class="r num">{cad(r.remaining)}</td>
                 <td><input class="mp-in num input-cell small-in" type="number" min="0" step="50" bind:value={a.yesterday} aria-label="Yesterday spend" /></td>
                 <td class="r num">{cad(r.dailyTarget)}</td>
@@ -156,6 +144,7 @@
             <td class="r num">{cad(t.spend)}</td>
             <td class="r num">{t.pacing === null ? '—' : pct(t.pacing)}</td>
             <td></td>
+            {#if hasBooked}<td></td>{/if}
             <td class="r num">{cad(t.remaining)}</td>
             <td class="r num">{cad(t.yesterday)}</td>
             <td class="r num">{cad(t.dailyTarget)}</td>
@@ -170,12 +159,12 @@
     </div>
     <p class="mp-note" style="margin: 0.6rem 0 0">
       Pacing = actual ÷ planned to date, with the band set above. Daily target = this week's flighted
-      spend ÷ 7. Awareness lines (CTV, video, audio) are not held to the CPA target. Data through
+      spend ÷ its days. Fill = delivered ÷ spend the seller booked, which is how running out of retail or publisher inventory shows up. Awareness lines (CTV, video, audio) are not held to the CPA target. Data through
       {shortDate(doc.pacing.dataThrough)}.
     </p>
   </section>
 
-  <div class="mp-next"><a class="next" href={`${base}/weekly-report`}>Next: write the weekly client report →</a></div>
+  <div class="mp-next"><a class="next" href={`${base}/campaign/${page.params.id}/report`}>Next: write the weekly client report →</a></div>
 </div>
 
 <style>

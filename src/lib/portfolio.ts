@@ -1,6 +1,6 @@
 export type Market = 'CA';
 
-export type ClientId = 'mccain' | 'mapleleaf' | 'olddutch' | 'agropur' | 'kruger' | 'timhortons';
+export type ClientId = 'mccain' | 'mapleleaf' | 'olddutch' | 'agropur' | 'kruger' | 'timhortons' | 'loblaw';
 
 export const MANAGER = {
   name: 'Dana Whitfield',
@@ -18,7 +18,8 @@ export const CLIENTS: Record<
   olddutch: { name: 'Old Dutch Foods', category: 'Salty snacks', retailers: ['Metro', 'Loblaw'], markets: ['CA'] },
   agropur: { name: 'Agropur', category: 'Dairy', retailers: ['Sobeys', 'Loblaw'], markets: ['CA'] },
   kruger: { name: 'Kruger Products', category: 'Household paper', retailers: ['Walmart Canada', 'Shoppers Drug Mart'], markets: ['CA'] },
-  timhortons: { name: 'Tim Hortons at-home', category: 'Coffee', retailers: ['Sobeys', 'Loblaw'], markets: ['CA'] }
+  timhortons: { name: 'Tim Hortons at-home', category: 'Coffee', retailers: ['Sobeys', 'Loblaw'], markets: ['CA'] },
+  loblaw: { name: 'Loblaw (PC Express Pass)', category: 'Grocery delivery membership', retailers: ['Loblaw', 'Shoppers Drug Mart'], markets: ['CA'] }
 };
 
 export const REQUIRED_LANGUAGES: Record<Market, string[]> = {

@@ -78,6 +78,9 @@ export type LineActual = {
   yesterday: number;
   impressions: number;
   conversions: number;
+  // Spend the seller confirmed for this line to date. Delivered ÷ booked is the fill
+  // rate, which shows supply running out; pacing shows spend against the flowchart.
+  booked?: number;
   note: string;
 };
 

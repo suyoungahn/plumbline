@@ -127,7 +127,7 @@ const mccainFries: Campaign = {
   targetCpaEur: 9.5,
   budgetEur: 420_000,
   flightDays: 28,
-  day: 12,
+  day: 25,
   market: 'CA',
   headline:
     'Walmart Connect onsite is bid to the ceiling and still cannot spend its allocation. CA$76,000 of the plan has nowhere to go, the Taboola deal is already at its cap, and the only surface with supply left is programmatic at nearly twice the cost per acquisition.',

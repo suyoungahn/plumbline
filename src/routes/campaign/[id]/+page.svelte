@@ -1,6 +1,9 @@
 <script lang="ts">
   import { base } from '$app/paths';
-  import { onMount } from 'svelte';
+  import { campaignById } from '$lib/scenario/campaigns';
+  import { records } from '$lib/mediaplan/store.svelte';
+  import { CHANNELS } from '$lib/mediaplan/types';
+  import { cad, lineName, paceAll, pct } from '$lib/mediaplan/calc';
   import { page } from '$app/state';
   import JevPanel from '$lib/components/JevPanel.svelte';
   import StatRail from '$lib/components/StatRail.svelte';
@@ -14,10 +17,26 @@
   let data = $state<any>(null);
   let loading = $state(true);
 
-  onMount(async () => {
-    const res = await fetch(`${base}/api/campaign/${page.params.id}`);
-    data = await res.json();
-    loading = false;
+  // Book campaigns carry a recorded Jev decision; a campaign planned in Plumbline
+  // (like the PC Express Pass sample) is read from its pacing instead.
+  const isBook = $derived(!!campaignById(page.params.id!));
+  const rec = $derived(records[page.params.id!]);
+  const paced = $derived(rec ? paceAll(rec.plan, rec.pacing) : null);
+
+  $effect(() => {
+    const id = page.params.id!;
+    data = null;
+    if (!campaignById(id)) {
+      loading = false;
+      return;
+    }
+    loading = true;
+    fetch(`${base}/api/campaign/${id}`)
+      .then((res) => res.json())
+      .then((j) => {
+        if (page.params.id === id) data = j;
+      })
+      .finally(() => (loading = false));
   });
 
   const c = $derived(data?.campaign);
@@ -139,7 +158,6 @@
           : { label: 'Nothing raised', why: 'The campaign is inside its tolerances, so no proposal was made.', tone: 'neutral' as const }
   );
 
-  const STAGES = ['Plan', 'Activate', 'Optimize', 'Report'];
 </script>
 
 {#if loading}
@@ -147,39 +165,9 @@
 {:else if c}
   <div class="page">
     <div class="main">
-    <nav class="crumbs"><a href={`${base}/today`}>Today</a> <span>/</span> {CLIENTS[c.clientId as ClientId].name}</nav>
-
-    <header class="head">
-      <div>
-        <span class="eyebrow">{CLIENTS[c.clientId as ClientId].name} · {CLIENTS[c.clientId as ClientId].category}</span>
-        <h1>{c.name}</h1>
-        <p class="obj">{c.objective}</p>
-      </div>
-      <dl class="figs">
-        <div><dt>Day</dt><dd>{c.day}/{c.flightDays}</dd></div>
-        <div><dt>Delivered</dt><dd>{eur(m.delivered)}</dd></div>
-        <div><dt>CPA</dt><dd class:bad={m.cpaVsTargetPct > 5}>CA${m.cpa.toFixed(2)}</dd></div>
-        <div><dt>Target</dt><dd>CA${c.targetCpaEur.toFixed(2)}</dd></div>
-        <div><dt>Pacing</dt><dd class:bad={m.pacing > 1.15}>{m.pacing.toFixed(2)}</dd></div>
-        {#if m.underfillEur > 0}
-          <div><dt>Underfilled</dt><dd class="bad">{eur(m.underfillEur)}</dd></div>
-        {/if}
-      </dl>
-    </header>
-
-    <div class="acts">
-      <a class="act primary" href={`${base}/client-report/${c.id}`}>Create client report</a>
-      {#if c.id === 'agropur-natrel-protein'}
-        <a class="act" href={`${base}/optimize`}>Replay this flight, tick by tick</a>
-      {/if}
-    </div>
-
-    <ol class="lifecycle">
-      {#each STAGES as s, i (s)}
-        <li class:active={i === 2}>{s}</li>
-      {/each}
-      <li class="note">This decision happens in Optimize, continuously, against the policy set in Plan</li>
-    </ol>
+    {#if c.id === 'agropur-natrel-protein'}
+      <div class="acts"><a class="act" href={`${base}/optimize`}>Replay this flight, tick by tick</a></div>
+    {/if}
 
     <p class="headline">{c.headline}</p>
 
@@ -294,6 +282,26 @@
       <StatRail stats={rail} title="Campaign health" />
     {/if}
   </div>
+{:else if !isBook && rec && paced}
+  <div class="page">
+    <p class="headline">
+      {rec.plan.objective}. Day {paced.daysElapsed} of {paced.flightDays}: {cad(paced.spend)} spent, {paced.pacing === null ? '—' : pct(paced.pacing)} of plan,
+      {paced.cpa === null ? 'no conversions yet' : `${cad(paced.cpa, 2)} per ${rec.plan.conversionName} against a ${cad(rec.plan.targetCpa, 2)} target`}.
+    </p>
+    <h2 class="section-title">Lines outside the pacing band</h2>
+    <ul class="offband">
+      {#each paced.rows.filter((r) => r.status === 'Overpacing' || r.status === 'Underpacing') as r (r.line.id)}
+        <li><span class="mp-pill" data-s={r.status}>{r.status}</span> {lineName(r.line)} · {r.pacing === null ? '—' : pct(r.pacing)} of plan · {CHANNELS[r.line.channel].label}</li>
+      {:else}
+        <li>Every line is inside the band.</li>
+      {/each}
+    </ul>
+    <p class="muted">
+      This campaign was planned in Plumbline, so it has no recorded Jev decision yet. Today's suggestions per line are
+      on <a href={`${base}/campaign/${page.params.id}/pacing`}>Pacing</a>, and the client update is on
+      <a href={`${base}/campaign/${page.params.id}/report`}>Report</a>.
+    </p>
+  </div>
 {:else}
   <div class="page"><p>Not found.</p></div>
 {/if}
@@ -302,30 +310,13 @@
   .acts { display: flex; gap: 0.5rem; margin: 1rem 0 0; flex-wrap: wrap; }
   .act { font-size: 0.82rem; padding: 0.4rem 0.8rem; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-1); color: var(--text-primary); text-decoration: none; }
   .act:hover { background: var(--hover); }
-  .act.primary { background: var(--series-1); border-color: var(--series-1); color: #fff; font-weight: 600; }
-  .act.primary:hover { filter: brightness(1.08); }
   .shell { display: grid; grid-template-columns: minmax(0, 1fr) 232px; gap: 1.1rem; align-items: start; }
-  .shell > .main { min-width: 0; }
   @media (max-width: 900px) { .shell { grid-template-columns: 1fr; } }
-  .crumbs { font-size: 0.76rem; color: var(--text-muted); margin-bottom: 0.6rem; }
-  .crumbs a { color: var(--text-secondary); text-decoration: none; }
-  .crumbs a:hover { text-decoration: underline; }
+  .offband { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.85rem; }
+  .section-title { font-size: 0.9rem; margin: 1rem 0 0.5rem; }
 
-  .head { display: flex; justify-content: space-between; gap: 2rem; align-items: flex-start; flex-wrap: wrap; }
-  .obj { color: var(--text-secondary); font-size: 0.85rem; margin: 0.3rem 0 0; max-width: 60ch; }
-  .figs { display: flex; gap: 1.3rem; margin: 0; flex-wrap: wrap; }
-  .figs dt { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
-  .figs dd { margin: 0.1rem 0 0; font-size: 1rem; font-variant-numeric: tabular-nums; }
-  .figs dd.bad, td.bad { color: var(--critical); }
   td.good { color: var(--good-text); }
-
-  .lifecycle { list-style: none; display: flex; align-items: center; gap: 0.35rem; padding: 0; margin: 1.25rem 0 1rem; flex-wrap: wrap; }
-  .lifecycle li {
-    font-size: 0.72rem; padding: 0.2rem 0.55rem; border-radius: 20px;
-    background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--border);
-  }
-  .lifecycle li.active { background: var(--series-1); color: #fff; border-color: var(--series-1); font-weight: 600; }
-  .lifecycle li.note { background: none; border: none; color: var(--text-muted); padding-left: 0.5rem; }
+  td.bad { color: var(--critical); }
 
   .headline { font-size: 0.92rem; color: var(--text-secondary); max-width: 92ch; margin: 0 0 1.5rem; }
 

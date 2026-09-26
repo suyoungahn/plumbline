@@ -11,7 +11,7 @@ import type { ChoiceAnswer, NoulAnswer, ScoreAnswer } from '$lib/jev-types';
 const FIXTURE_DIR = join(process.cwd(), 'fixtures', 'jev');
 
 export function termState(t: SearchTerm, c: Campaign) {
-  const lex = LEXICON[c.clientId];
+  const lex = LEXICON[c.clientId]!;
   const lower = t.term.toLowerCase();
   const cpa = t.conversions > 0 ? Number((t.spendEur / t.conversions).toFixed(2)) : null;
   return {

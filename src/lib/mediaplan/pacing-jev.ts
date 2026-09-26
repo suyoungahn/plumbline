@@ -1,7 +1,8 @@
-import { LEVERS, SEVERITY_RUBRIC, type LeverId } from '$lib/domain';
+import { GATE_THRESHOLD, LEVERS, SEVERITY_RUBRIC, type LeverId } from '$lib/domain';
+import { simulate } from '$lib/heuristic';
 import type { JevQuestion } from '$lib/jev-types';
 import { CHANNELS, type MediaPlan, type Pacing } from './types';
-import type { PacedLine } from './calc';
+import { paceAll, type PacedLine } from './calc';
 
 // The daily pacing read, asked of Jev one line at a time. Same closed lever set as the
 // rest of the product, so a suggestion here means the same thing as one on Today.
@@ -73,3 +74,21 @@ export type LineSuggestion = {
   costUsd: number;
   source: 'live' | 'replay' | 'sim';
 };
+
+// The heuristic stand-in, run in the browser. Used where there is no server to ask
+// (the static build) and for quick counts on the Inbox and Campaigns pages.
+export function localSuggestions(p: MediaPlan, pace: Pacing): LineSuggestion[] {
+  return paceAll(p, pace).rows.map((r) => {
+    const a = simulate(pacingLineState(p, pace, r), PACING_QUESTIONS).answers;
+    const gate = a.gate.noul as number;
+    return {
+      gateProbability: gate,
+      needsYou: gate >= GATE_THRESHOLD,
+      lever: a.lever.choice as LeverId,
+      confidence: a.lever.confidence as number,
+      severity: a.severity.score as number,
+      costUsd: 0,
+      source: 'sim'
+    };
+  });
+}

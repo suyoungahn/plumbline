@@ -1,6 +1,8 @@
 <script lang="ts">
   import { base } from '$app/paths';
-  import { doc } from '$lib/mediaplan/store.svelte';
+  import { page } from '$app/state';
+  import { records } from '$lib/mediaplan/store.svelte';
+  const doc = $derived(records[page.params.id!]);
   import { CHANNELS } from '$lib/mediaplan/types';
   import { addDays, cad, cadK, dayMonth, flowTotals, isHeld, pct, spreadEvenly, weekStart, weekly, weightTotal } from '$lib/mediaplan/calc';
   import { downloadWorkbook } from '$lib/mediaplan/xlsx';
@@ -34,8 +36,7 @@
 <div class="page">
   <header class="mp-top">
     <div>
-      <span class="eyebrow">Step 2 of 4 · {plan.campaign}</span>
-      <h1>Flowchart</h1>
+      <h2 class="tab-title">Flowchart</h2>
       <p class="lede">
         How the budget is spread across the flight. Set a weight and the retail moment for each week;
         every line is flighted by the same weights unless it is held. Pacing is measured against this.
@@ -129,7 +130,7 @@
     </p>
   </section>
 
-  <div class="mp-next"><a class="next" href={`${base}/pacing`}>Next: track pacing against this →</a></div>
+  <div class="mp-next"><a class="next" href={`${base}/campaign/${page.params.id}/pacing`}>Next: track pacing against this →</a></div>
 </div>
 
 <style>

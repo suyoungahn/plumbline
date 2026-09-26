@@ -13,11 +13,12 @@ tolerances, the permitted lever set, and a threshold per lever. A Policy is
 authored once (from the client brief) and then continuously evaluated. It is not
 a document, and nothing re-keys it into another system.
 
-Contrast with **Media plan**: the artifact a Policy replaces. A deck plus a
-flowchart spreadsheet, produced upstream by a planner, then manually re-entered
-into the ad server by a different person. IAB lists that re-entry and the audit
-of that re-entry as two separate billable ad ops tasks. Both tasks exist only
-because the plan is a document.
+The Policy and the **Media plan** are one record. People author it where they
+already work, in a line-item grid with a flowchart, and the client signs off the
+lines and the lever authority together. What goes away is the document as the
+source of truth: the old flow built a deck and a spreadsheet, then someone
+re-entered them into each platform and someone else audited the re-entry. Here the
+Excel workbook and the PDF are exports of the record, and nothing is re-keyed.
 
 **Tick**
 One observation of a Campaign at a point in time. Carries spend, pacing, CPA,

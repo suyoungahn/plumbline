@@ -77,7 +77,7 @@ pf.summary.source === 'replay'
 pf.summary.needsHuman > 0 && pf.summary.needsHuman < 8
   ? ok(`${pf.summary.needsHuman} need a human, ${pf.summary.handled} cleared`)
   : bad(`queue size ${pf.summary.needsHuman} is not demo-shaped`);
-for (const p2 of ['/today', '/reporting', '/clients', '/plan', '/flowchart', '/pacing', '/weekly-report', '/keywords', '/campaign/mccain-freezer-reset', '/client-report/mccain-freezer-reset', '/optimize']) {
+for (const p2 of ['/today', '/reporting', '/clients', '/campaigns', '/campaign/pcexpress-holiday/plan', '/campaign/pcexpress-holiday/flowchart', '/campaign/pcexpress-holiday/pacing', '/campaign/pcexpress-holiday/report', '/campaign/mccain-freezer-reset/search-terms', '/keywords', '/campaign/mccain-freezer-reset', '/client-report/mccain-freezer-reset', '/optimize']) {
   const r = await fetch(`${BASE}${p2}`);
   r.ok ? ok(`${p2} renders`) : bad(`${p2} returned ${r.status}`);
 }
