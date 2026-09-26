@@ -69,10 +69,9 @@ ${md
         <span class="eyebrow">Client report</span>
         <h1>{data.campaign.client} · {data.campaign.name}</h1>
         <p class="muted small">
-          Assembled from the decision record. Nothing was exported from a platform and nothing was
-          reconciled to produce it.
+          Built from the decision record.
           {#if !data.generated}
-            <span class="badge">Narrative not generated, needs model credit. The figures are unaffected.</span>
+            <span class="badge">Summary not generated.</span>
           {/if}
         </p>
       </div>
@@ -121,7 +120,7 @@ ${md
           , at {(data.decision.confidence * 100).toFixed(0)}% confidence. {data.decision.severityLabel}.
           Reviewed by a person before being applied.
         {:else}
-          . The campaign is inside its tolerances on cost, pacing and delivery, so nothing was raised.
+          . On track; no changes.
         {/if}
       </p>
       <p class="muted small">Illustrative scenario, not real campaign data.</p>

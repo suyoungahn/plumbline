@@ -193,3 +193,4 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .mp-pill[data-s='Overpacing'] { background: color-mix(in srgb, var(--critical) 14%, transparent); color: var(--critical); }
 .mp-pill[data-s='Underpacing'] { background: color-mix(in srgb, var(--warning) 24%, transparent); color: var(--text-primary); }
 .mp-next { display: flex; justify-content: flex-end; margin-top: 0.4rem; }
+h2.tab-title { font-size: 1.15rem; }

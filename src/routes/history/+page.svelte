@@ -2,11 +2,22 @@
   import { decisionCost } from '$lib/money';
   import { base } from '$app/paths';
   import { onMount } from 'svelte';
+  import { RECORD_IDS, records } from '$lib/mediaplan/store.svelte';
+  import { RULING_LABEL } from '$lib/mediaplan/decisions';
+  import { shortDate } from '$lib/mediaplan/calc';
 
   let data = $state<any>(null);
   let loading = $state(true);
   let openCall = $state<string | null>(null);
   let tab = $state<'state' | 'answers' | 'questions'>('state');
+  let view = $state<'decisions' | 'calls'>('decisions');
+
+  // Every ruling across every campaign, newest first.
+  const all = $derived(
+    RECORD_IDS.flatMap((id) => records[id].decisions.map((d) => ({ ...d, campaignId: id, campaign: records[id].plan.campaign }))).sort(
+      (x, y) => y.date.localeCompare(x.date) || x.campaign.localeCompare(y.campaign)
+    )
+  );
 
   onMount(async () => {
     data = await (await fetch(`${base}/api/jev-log`)).json();
@@ -50,15 +61,9 @@
 <div class="page">
   <header class="top">
     <div>
-      <span class="eyebrow">Model observability</span>
-      <h1>Jev decision log</h1>
-      <p class="lede">
-        Every question put to Jev and every answer it returned, with the state it was reading at the
-        time. The request is stored alongside the response, which is what makes the comparison at the
-        bottom of this page possible.
-      </p>
+      <h1>History</h1>
     </div>
-    {#if a}
+    {#if view === 'calls' && a}
       <div class="dl">
         <button onclick={() => download('json')}>Export JSON</button>
         <button onclick={() => download('csv')}>Export CSV</button>
@@ -66,12 +71,43 @@
     {/if}
   </header>
 
+  <div class="seg" role="tablist" aria-label="History views">
+    <button role="tab" aria-selected={view === 'decisions'} class:on={view === 'decisions'} onclick={() => (view = 'decisions')}>Decisions</button>
+    <button role="tab" aria-selected={view === 'calls'} class:on={view === 'calls'} onclick={() => (view = 'calls')}>Model calls</button>
+  </div>
+
+  {#if view === 'decisions'}
+    {#if all.length === 0}
+      <div class="empty">
+        <p><strong>No decisions yet.</strong></p>
+        <p>Approve or decline a suggestion in the <a href={`${base}/today`}>Inbox</a>.</p>
+      </div>
+    {:else}
+      <div class="mp-scroll mp-card flush">
+        <table class="mp-table">
+          <thead><tr><th>Date</th><th>Campaign</th><th>Item</th><th>Change</th><th>Outcome</th></tr></thead>
+          <tbody>
+            {#each all as d (d.campaignId + d.key)}
+              <tr>
+                <td class="num muted">{shortDate(d.date)}</td>
+                <td><a href={`${base}/campaign/${d.campaignId}/decisions`}>{d.campaign}</a></td>
+                <td class="muted">{d.subject}</td>
+                <td>{d.action}</td>
+                <td><span class="out" data-r={d.ruling}>{RULING_LABEL[d.ruling]}{d.ruledBy === 'manager' ? ' by you' : ''}</span></td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    {/if}
+  {:else}
+
   {#if loading}
     <p class="muted">Reading the log…</p>
   {:else if a}
     <section class="cards">
       <div><dt>Calls</dt><dd>{a.calls}</dd><small>{a.questionsPerCall} questions each</small></div>
-      <div><dt>Decisions</dt><dd>{a.calls * a.questionsPerCall}</dd><small>typed answers returned</small></div>
+      <div><dt>Decisions</dt><dd>{a.calls * a.questionsPerCall}</dd><small>answers</small></div>
       <div><dt>Total cost</dt><dd>{decisionCost(a.totalCostUsd)}</dd><small>{decisionCost(a.meanCostUsd)} per call</small></div>
       <div><dt>Median latency</dt><dd>{a.medianLatencyMs}ms</dd><small>max {a.maxLatencyMs}ms</small></div>
       <div><dt>Input tokens</dt><dd>{a.totalInputTokens.toLocaleString()}</dd><small>output billed at zero</small></div>
@@ -100,10 +136,7 @@
 
       <section class="panel">
         <h2>Against a rules engine, same inputs</h2>
-        <p class="note">
-          The identical states and questions run through a deterministic rules engine. It is a fair
-          comparison of mechanism, not of effort: the rules were written against these same signals.
-        </p>
+        <p class="note">Same inputs, run through fixed rules.</p>
         <dl class="cmp">
           <div><dt>States compared</dt><dd>{a.baseline.compared}</dd></div>
           <div><dt>Chose a different lever</dt><dd>{a.baseline.leverDisagreements}</dd></div>
@@ -126,14 +159,7 @@
               {/each}
             </tbody>
           </table>
-          <p class="note punch">
-            Be precise about what this shows. The rules engine's confidence is derived from its own
-            branch margin, so it is a number somebody chose rather than one calibrated against
-            outcomes. A deterministic branch has no calibrated uncertainty to report, so it lands
-            somewhere and reads as certain. On these decisions it would have executed without asking
-            anyone, while Jev returned a confidence below every threshold and the work went to a
-            person. The claim is about knowing when not to act, not about being more accurate.
-          </p>
+          <p class="note punch">Fixed rules would have acted on these without asking. Jev flagged them for review.</p>
         {/if}
       </section>
     </div>
@@ -196,11 +222,21 @@
       </section>
     {/if}
   {/if}
+  {/if}
 </div>
 
 <style>
+  .seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--surface-3); margin: 0 0 1rem; }
+  .seg button { border: none; background: none; padding: 0.3rem 0.9rem; border-radius: 8px; font-size: 0.85rem; color: var(--text-secondary); }
+  .seg button.on { background: var(--surface-1); color: var(--text-primary); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+  .empty { padding: 2rem 0; color: var(--text-secondary); }
+  .empty p { margin: 0 0 0.3rem; }
+  .flush { padding: 0.2rem 0.4rem; }
+  .out { font-size: 0.72rem; font-weight: 600; padding: 0.1rem 0.45rem; border-radius: 999px; background: var(--surface-3); white-space: nowrap; }
+  .out[data-r='approved'] { background: color-mix(in srgb, var(--series-1) 16%, transparent); color: var(--series-1); }
+  .out[data-r='auto'] { background: color-mix(in srgb, var(--good) 14%, transparent); color: var(--good-text); }
+
   .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 2rem; flex-wrap: wrap; }
-  .lede { color: var(--text-secondary); max-width: 82ch; margin: 0.4rem 0 1.4rem; font-size: 0.9rem; }
   .dl { display: flex; gap: 0.4rem; }
 
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.6rem; margin-bottom: 1.25rem; }

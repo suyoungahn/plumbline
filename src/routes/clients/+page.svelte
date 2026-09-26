@@ -40,7 +40,7 @@
             </span>
             <span class="count">{mine.length} campaigns</span>
             <span class="need" data-need={need > 0}>
-              {need > 0 ? `${need} need you` : 'all clear'}
+              {need > 0 ? `${need} to review` : 'on track'}
             </span>
           </button>
 

@@ -41,14 +41,9 @@
   <div class="topline">
     <div>
       <nav class="crumbs"><a href={`${base}/campaign/agropur-natrel-protein`}>← Agropur Natrel protein milk launch</a></nav>
-      <span class="eyebrow">Flight replay · six observations across a 30 day flight</span>
-      <h1>Optimize, tick by tick</h1>
-      <p class="lede">
-        The portfolio view shows one moment across 24 campaigns. This shows one campaign across its
-        whole flight, which is where the loop and the threshold ratchet become visible.
-        <span class="caveat">Recorded before the scenario was relabelled for Canada, so Jev saw earlier
-        brand and retailer names. The figures and decisions are real Jev output; a re-record refreshes the labels.</span>
-      </p>
+      <span class="eyebrow">Flight replay</span>
+      <h1>Replay the flight</h1>
+      <p class="lede">One campaign, day by day. <span class="caveat">Recorded under earlier brand names.</span></p>
     </div>
 
     <div class="controls">
@@ -88,8 +83,7 @@
       <div class="col">
         <section class="card panel">
           <header class="panel-head">
-            <h2>What the decision model was asked</h2>
-            <span class="muted">Three typed questions, one call, closed answer space</span>
+            <h2>Inputs</h2>
           </header>
 
           {#if !proposal}
@@ -104,7 +98,7 @@
                 value={proposal.gateProbability}
                 label="Probability true"
                 tone={proposal.gateProbability > 0.6 ? 'critical' : 'good'}
-                caption="Noul returns no separate confidence field. The probability is the certainty."
+                caption=""
               />
             </div>
 
@@ -122,8 +116,7 @@
                 }))}
               />
               <p class="note">
-                Confidence {(proposal.leverConfidence * 100).toFixed(0)} percent. The answer space is
-                declared up front, so there is no option here the agency did not authorise.
+                Confidence {(proposal.leverConfidence * 100).toFixed(0)}%.
               </p>
             </div>
 
@@ -155,9 +148,7 @@
 
             {#if !proposal.gateOpen}
               <p class="shutline">
-                The gate scored {(proposal.gateProbability * 100).toFixed(0)} percent, below the
-                50 percent bar, so nothing enters the operator's queue. The lever below is what the
-                model <em>would</em> reach for if it had to act, shown for transparency only.
+                No review needed ({(proposal.gateProbability * 100).toFixed(0)}%). Shown for reference.
               </p>
             {/if}
 
@@ -169,18 +160,12 @@
 
             {#if proposal.rationale}
               <p class="rationale">{proposal.rationale}</p>
-              <p class="note">Rationale written by a generative model. The decision above it was not.</p>
-            {:else}
-              <p class="note">
-                No generated rationale in this mode. The decision stands without it, which is the point:
-                prose is never load bearing.
-              </p>
+              
             {/if}
 
             {#if !LEVERS[proposal.lever].agencyAuthority}
               <p class="escalation">
-                This lever is outside the agency mandate. The agent is declining to act and handing the
-                decision back to the client.
+                Client decision. Sent to the client.
               </p>
             {/if}
 
@@ -200,10 +185,7 @@
             <h2>Auto-execute thresholds</h2>
             <span class="muted">The adoption dial</span>
           </header>
-          <p class="note">
-            Every lever starts at 100 percent, meaning a human rules on everything. A threshold only
-            comes down when the measured agreement rate justifies it.
-          </p>
+          <p class="note">Every action starts at full review.</p>
           <ul class="thresholds">
             {#each levers as id (id)}
               {@const ag = effectiveAgreement(id)}
@@ -245,9 +227,7 @@
                 </li>
               {/each}
             </ul>
-            <p class="note">
-              This ledger is what Report narrates. Nobody builds a deck, because the record already exists.
-            </p>
+            
           {/if}
         </section>
       </div>

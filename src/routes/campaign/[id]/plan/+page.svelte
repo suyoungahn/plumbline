@@ -9,9 +9,14 @@
   import { GATE_THRESHOLD } from '$lib/domain';
   import { planLeverLabel, planQuestions, stateFor as planStateFor } from '$lib/plan-eval';
   import { simulate } from '$lib/heuristic';
-  import { doc, newLineId, resetCampaign } from '$lib/mediaplan/store.svelte';
+  import { page } from '$app/state';
+  import { records, newLineId, resetCampaign } from '$lib/mediaplan/store.svelte';
+  import { onMount } from 'svelte';
+  import { settings as teamSettings } from '$lib/mediaplan/store.svelte';
+  onMount(() => (teamSettings.seenPlan = true));
+  const doc = $derived(records[page.params.id!]);
   import { CHANNELS, type BuyType, type ChannelId, type PlanLine } from '$lib/mediaplan/types';
-  import { cad, estimates, fitWeeks, flightDays, pct, planTotals, weekCount } from '$lib/mediaplan/calc';
+  import { cad, estimates, fitWeeks, flightDays, pct, planTotals, shortDate, weekCount } from '$lib/mediaplan/calc';
   import { retailLines, toPlanDraft } from '$lib/mediaplan/deliverability';
   import { downloadWorkbook } from '$lib/mediaplan/xlsx';
 
@@ -181,10 +186,10 @@
     !check || !planState
       ? []
       : [
-          { label: 'What it read', primitive: `${Object.keys(planState).length} state fields`, value: `${retail.length} retail and publisher lines`, sub: `${cad(draft.budgetEur)} of the plan draws on finite or priced supply`, lit: true },
-          { label: 'Is this deliverable?', primitive: 'noul · bar at 50%', value: pct(check.deliverableProbability), bar: { value: check.deliverableProbability, threshold: 0.5, tone: check.deliverable ? 'good' : 'bad' }, sub: check.deliverable ? 'clears the bar' : `${cad(planState.undeliverable_eur)} has nowhere to go`, lit: true },
-          { label: 'What would fix it?', primitive: `choice · over ${Object.keys(check.distribution).length} options`, value: planLeverLabel(check.recommendation), sub: `${pct(check.confidence)} confidence`, lit: true },
-          { label: 'How much risk?', primitive: 'score · 0 to 4', value: check.riskScore.toFixed(1), bar: { value: check.riskScore / 4, tone: check.riskScore > 2 ? 'bad' : 'good' }, lit: true }
+          { label: 'What it read', primitive: '', value: `${retail.length} retail and publisher lines`, sub: `${cad(draft.budgetEur)} of the plan draws on finite or priced supply`, lit: true },
+          { label: 'Is this deliverable?', primitive: '', value: pct(check.deliverableProbability), bar: { value: check.deliverableProbability, threshold: 0.5, tone: check.deliverable ? 'good' : 'bad' }, sub: check.deliverable ? 'clears the bar' : `${cad(planState.undeliverable_eur)} has nowhere to go`, lit: true },
+          { label: 'What would fix it?', primitive: '', value: planLeverLabel(check.recommendation), sub: `${pct(check.confidence)} confidence`, lit: true },
+          { label: 'How much risk?', primitive: '', value: check.riskScore.toFixed(1), bar: { value: check.riskScore / 4, tone: check.riskScore > 2 ? 'bad' : 'good' }, lit: true }
         ]
   );
   const jevOutcome = $derived(
@@ -209,17 +214,12 @@
 <div class="page">
   <header class="mp-top">
     <div>
-      <span class="eyebrow">Step 1 of 4 · {plan.client}</span>
-      <h1>Media plan</h1>
-      <p class="lede">
-        Fill in the brief and the line items. Everything else, from estimated delivery to the weekly
-        flowchart and the client workbook, is calculated from these fields. Jev checks whether the
-        retail and publisher lines can actually be delivered while you type.
-      </p>
+      <h2 class="tab-title">Media plan</h2>
+      <p class="lede">The brief and every line item. Retail and publisher lines are checked against real inventory as you type.</p>
     </div>
     <div class="mp-actions">
-      <button onclick={() => confirm('Discard your edits and reload the sample campaign?') && resetCampaign()}>Reset to sample</button>
-      <button class="mp-primary" onclick={exportXlsx} disabled={exporting}>{exporting ? 'Building…' : 'Download media plan (.xlsx)'}</button>
+      <button onclick={() => confirm('Discard your edits to this campaign?') && resetCampaign(page.params.id!)}>Reset this campaign</button>
+      <button onclick={exportXlsx} disabled={exporting}>{exporting ? 'Building…' : 'Export to Excel'}</button>
     </div>
   </header>
 
@@ -230,8 +230,8 @@
     <li class="st">{STATUS_LABEL[status]}</li>
   </ol>
 
-  <section class="mp-card">
-    <h2>1 · Campaign brief</h2>
+  <details class="mp-card fold">
+    <summary><h2>Brief</h2><span class="fold-sum">{plan.objective} · {cad(plan.totalBudget)} · {shortDate(plan.flightStart)}–{shortDate(plan.flightEnd)} · target CPA {cad(plan.targetCpa, 2)}</span></summary>
     <div class="mp-grid">
       <label class="mp-field">Client<input bind:value={doc.plan.client} /></label>
       <label class="mp-field">Campaign<input bind:value={doc.plan.campaign} /></label>
@@ -244,19 +244,12 @@
       <label class="mp-field">Flight end<input type="date" bind:value={doc.plan.flightEnd} onchange={onFlightChange} /></label>
       <label class="mp-field">Total budget (CAD)<input type="number" step="5000" min="0" bind:value={doc.plan.totalBudget} /></label>
     </div>
-    <p class="mp-note" style="margin: 0.7rem 0 0">
-      {flightDays(plan)} days, {weekCount(plan)} flowchart weeks. Primary KPI: cost per new {plan.conversionName}
-      (target {cad(plan.targetCpa, 2)}). {approvals.reason}. Canada, including Quebec, requires creative in English and French.
-    </p>
-  </section>
+    <p class="mp-note" style="margin: 0.7rem 0 0">{flightDays(plan)} days · {weekCount(plan)} weeks · {approvals.reason}.</p>
+  </details>
 
   <section class="mp-card" data-tone={budgetOk ? undefined : 'alert'}>
-    <h2>2 · Line items</h2>
-    <p class="mp-note">
-      One row per buy. Estimated impressions are budget ÷ CPM × 1,000 and estimated clicks are budget ÷
-      CPC. Retail onsite, in-app, off-app and programmatic lines draw on the supply Jev checks below;
-      pick the seller from the list.
-    </p>
+    <h2>Line items</h2>
+    <p class="mp-note">One row per buy. Pick the seller from the list for retail and publisher lines.</p>
     <div class="mp-scroll">
       <table class="mp-table lines">
         <thead>
@@ -320,25 +313,8 @@
   </section>
 
   <section class="mp-card" data-tone={check && !check.deliverable ? 'bad' : undefined}>
-    <h2>3 · Can the retail and publisher lines be delivered? <span class="live" class:on={checking}>{checking ? 'Jev re-evaluating…' : 'Up to date'}</span></h2>
-    <p class="mp-note">
-      Retail onsite, in-app and publisher deals are finite: the bar behind each line is what actually
-      exists over this flight. Programmatic is not. CTV, social, search and audio are auctions, so they
-      are not part of this check.
-    </p>
-    {#if check}
-      <JevPanel
-        steps={jevSteps}
-        outcome={jevOutcome}
-        {delta}
-        meta={{ costUsd: check.costUsd, latencyMs: check.latencyMs, source: check.source }}
-        raw={{ state: planState, questions: [
-          { key: 'gate', type: 'noul', instructions: 'Is this media plan deliverable as specified?' },
-          { key: 'lever', type: 'choice', instructions: 'Which single change would best fix this plan before it goes to approval?', optionCount: Object.keys(check.distribution).length },
-          { key: 'severity', type: 'score', instructions: 'How much delivery risk does this plan carry as written?' }
-        ], answers: { deliverable: check.deliverableProbability, recommendation: check.recommendation, distribution: check.distribution, confidence: check.confidence, risk: check.riskScore } }}
-      />
-    {/if}
+    <h2>Can it be delivered? <span class="live" class:on={checking}>{checking ? 'Checking' : 'Up to date'}</span></h2>
+    <p class="mp-note">Green is what exists over this flight. Red means the plan asks for more.</p>
     <ul class="places">
       {#each retail as l, i (l.id)}
         {@const s = planState?.placements?.[i]}
@@ -371,20 +347,33 @@
         </li>
       {/each}
     </ul>
+    <details class="howcheck">
+      <summary>How it was checked</summary>
+    {#if check}
+      <JevPanel
+        steps={jevSteps}
+        outcome={jevOutcome}
+        {delta}
+        meta={{ costUsd: check.costUsd, latencyMs: check.latencyMs, source: check.source }}
+        raw={{ state: planState, questions: [
+          { key: 'gate', type: 'noul', instructions: 'Is this media plan deliverable as specified?' },
+          { key: 'lever', type: 'choice', instructions: 'Which single change would best fix this plan before it goes to approval?', optionCount: Object.keys(check.distribution).length },
+          { key: 'severity', type: 'score', instructions: 'How much delivery risk does this plan carry as written?' }
+        ], answers: { deliverable: check.deliverableProbability, recommendation: check.recommendation, distribution: check.distribution, confidence: check.confidence, risk: check.riskScore } }}
+      />
+    {/if}
+    </details>
     {#if planState?.undeliverable_eur > 0}
-      <button class="mp-primary" onclick={applyFix}>Apply Jev's fix: cap finite lines, move {cad(planState.undeliverable_eur)} to programmatic</button>
+      <button class="mp-primary" onclick={applyFix}>Move {cad(planState.undeliverable_eur)} to programmatic</button>
     {/if}
   </section>
 
-  <section class="mp-card" data-tone={coverage.ready ? 'ok' : 'alert'}>
-    <h2>4 · Creative and language</h2>
-    <p class="mp-note">
-      Every retail and publisher surface needs an eligible asset in English and French. This is a gate,
-      not a warning: the plan cannot be submitted without it.
-    </p>
+  <details class="mp-card fold" data-tone={coverage.ready ? 'ok' : 'alert'} open={!coverage.ready}>
+    <summary><h2>Creative and language</h2><span class="fold-sum">{coverage.ready ? 'English and French ready for every surface' : `Missing ${coverage.gaps.map((g) => g.language).join(' and ')} creative`}</span></summary>
+    <p class="mp-note">English and French creative is required for every surface.</p>
     <div class="drop">
       <input bind:this={fileInput} type="file" multiple accept="image/*,video/*,.json" onchange={onFiles} />
-      <span>Add creative. Format is read from the image size; files ending in _fr are tagged French.</span>
+      <span>Add creative. Files ending in _fr are tagged French.</span>
     </div>
     <ul class="creatives">
       {#each doc.plan.creatives as c, i (c.id)}
@@ -409,14 +398,14 @@
           <span class="gap">Missing <strong>{g.language}</strong> creative for {g.surfaces.map((s) => SURFACES[s].label).join(', ')}.</span>
         {/each}
         {#if coverage.gaps.some((g) => g.language === 'fr-CA')}
-          <span class="legal">French creative is a legal requirement for reaching Quebec under the Charter of the French Language, so these lines cannot run there as planned.</span>
+          <span class="legal">Required in Quebec (Charter of the French Language).</span>
         {/if}
       {/if}
     </p>
-  </section>
+  </details>
 
-  <section class="mp-card">
-    <h2>5 · Notes and assumptions</h2>
+  <details class="mp-card fold">
+    <summary><h2>Notes</h2><span class="fold-sum">{plan.notes.length} {plan.notes.length === 1 ? 'note' : 'notes'} for the client workbook</span></summary>
     <ul class="mp-list">
       {#each doc.plan.notes as _, i (i)}
         <li>
@@ -426,10 +415,10 @@
       {/each}
     </ul>
     <button onclick={() => doc.plan.notes.push('')}>Add note</button>
-  </section>
+  </details>
 
   <section class="mp-card">
-    <h2>6 · Approval</h2>
+    <h2>Approval</h2>
     {#if trail.length}
       <ol class="trail">
         {#each trail as t, i (i)}<li><strong>{t.stage}</strong><span>{t.by}</span><span class="mp-muted">{t.note}</span></li>{/each}
@@ -463,10 +452,19 @@
     </div>
   </section>
 
-  <div class="mp-next"><a class="next" href={`${base}/flowchart`}>Next: flight the budget by week →</a></div>
+  <div class="mp-next"><a class="next" href={`${base}/campaign/${page.params.id}/flowchart`}>Next: flight the budget by week →</a></div>
 </div>
 
 <style>
+  .fold > summary { cursor: pointer; list-style: none; display: flex; align-items: baseline; gap: 0.8rem; flex-wrap: wrap; }
+  .fold > summary::-webkit-details-marker { display: none; }
+  .fold > summary h2 { margin: 0; }
+  .fold > summary::after { content: '▸'; margin-left: auto; color: var(--text-muted); }
+  .fold[open] > summary::after { content: '▾'; }
+  .fold[open] > summary { margin-bottom: 0.8rem; }
+  .howcheck { margin: 0.4rem 0 0.8rem; }
+  .howcheck > summary { cursor: pointer; font-size: 0.85rem; color: var(--series-1); }
+  .fold-sum { font-size: 0.85rem; color: var(--text-muted); }
   .stepper { list-style: none; display: flex; gap: 0.3rem; padding: 0; margin: 0 0 1rem; flex-wrap: wrap; align-items: center; }
   .stepper li { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; padding: 0.22rem 0.55rem; border-radius: 20px; background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--border); }
   .stepper li.done { background: color-mix(in srgb, var(--good) 15%, transparent); color: var(--good-text); }

@@ -1,6 +1,12 @@
 <script lang="ts">
   import { base } from '$app/paths';
-  import { onMount } from 'svelte';
+  import { campaignById } from '$lib/scenario/campaigns';
+  import { records } from '$lib/mediaplan/store.svelte';
+  import DecisionCell from '$lib/components/DecisionCell.svelte';
+  import { campaignKey, remove, upsert } from '$lib/mediaplan/decisions';
+  import { recommendation } from '$lib/mediaplan/recommend';
+  import { CHANNELS } from '$lib/mediaplan/types';
+  import { cad, lineName, paceAll, pct } from '$lib/mediaplan/calc';
   import { page } from '$app/state';
   import JevPanel from '$lib/components/JevPanel.svelte';
   import StatRail from '$lib/components/StatRail.svelte';
@@ -14,10 +20,47 @@
   let data = $state<any>(null);
   let loading = $state(true);
 
-  onMount(async () => {
-    const res = await fetch(`${base}/api/campaign/${page.params.id}`);
-    data = await res.json();
-    loading = false;
+  // Book campaigns carry a recorded Jev decision; a campaign planned in Plumbline
+  // (like the PC Express Pass sample) is read from its pacing instead.
+  const isBook = $derived(!!campaignById(page.params.id!));
+  const rec = $derived(records[page.params.id!]);
+  const paced = $derived(rec ? paceAll(rec.plan, rec.pacing) : null);
+  const campaignWhy = $derived(
+    paced ? [paced.pacing === null ? '' : `${pct(paced.pacing)} of plan to date`, paced.cpa === null ? '' : `CPA ${cad(paced.cpa, 2)} vs ${cad(rec!.plan.targetCpa, 2)} target`].filter(Boolean).join('; ') : ''
+  );
+
+  function ruleCampaign(ruling: 'approved' | 'overruled') {
+    if (!rec || !p) return;
+    upsert(rec.decisions, {
+      key: campaignKey(rec.pacing.dataThrough),
+      date: rec.pacing.dataThrough,
+      kind: 'campaign',
+      lever: p.lever,
+      subject: rec.plan.campaign,
+      action: LEVERS[p.lever as LeverId].label,
+      why: campaignWhy,
+      gate: p.gateProbability,
+      confidence: p.leverConfidence,
+      source: p.source === 'replay' ? 'jev_recorded' : p.source === 'sim' ? 'stand_in' : 'jev',
+      ruling,
+      ruledBy: 'manager'
+    });
+  }
+
+  $effect(() => {
+    const id = page.params.id!;
+    data = null;
+    if (!campaignById(id)) {
+      loading = false;
+      return;
+    }
+    loading = true;
+    fetch(`${base}/api/campaign/${id}`)
+      .then((res) => res.json())
+      .then((j) => {
+        if (page.params.id === id) data = j;
+      })
+      .finally(() => (loading = false));
   });
 
   const c = $derived(data?.campaign);
@@ -90,14 +133,14 @@
       : [
           {
             label: 'What it read',
-            primitive: 'campaign state',
+            primitive: '',
             value: `${c.lines.length} placements`,
             sub: `spend, CPA, fill rate and creative decay per placement`,
             lit: true
           },
           {
             label: 'Does this need a person?',
-            primitive: 'noul · bar at 50%',
+            primitive: '',
             value: `${(p.gateProbability * 100).toFixed(0)}%`,
             bar: { value: p.gateProbability, threshold: 0.5, tone: p.gateOpen ? 'bad' : 'good' },
             sub: p.gateOpen ? 'above the bar, so it was raised' : 'below the bar, nothing was raised',
@@ -105,14 +148,14 @@
           },
           {
             label: 'What should we do?',
-            primitive: `choice · over ${Object.keys(p.leverDistribution).length} permitted levers`,
+            primitive: '',
             value: LEVERS[p.lever as LeverId].label,
             sub: `${(p.leverDistribution[p.lever] * 100).toFixed(0)}% of the weight, ${(p.leverConfidence * 100).toFixed(0)}% confidence`,
             lit: p.gateOpen
           },
           {
             label: 'How bad is it?',
-            primitive: `score · 0 to ${SEVERITY_MAX}`,
+            primitive: '',
             value: p.severity.toFixed(1),
             bar: { value: p.severity / SEVERITY_MAX, tone: p.severity > 2 ? 'bad' : 'good' },
             sub: severityLabel(p.severity),
@@ -120,7 +163,7 @@
           },
           {
             label: 'Can we act alone?',
-            primitive: "confidence vs this lever's earned bar",
+            primitive: '',
             value: threshold >= 1 ? 'review all' : `${(threshold * 100).toFixed(0)}% bar`,
             bar: { value: p.leverConfidence, threshold, tone: p.leverConfidence >= threshold ? 'good' : 'neutral' },
             sub: `confidence ${(p.leverConfidence * 100).toFixed(0)}%`,
@@ -136,10 +179,9 @@
         ? { label: 'Sent to the client', why: 'Every action that would fix this is outside the agency mandate.', tone: 'warn' as const }
         : outcome === 'queued'
           ? { label: `Sent to ${MANAGER.name.split(' ')[0]}`, why: 'Either the lever has not earned autonomy, or confidence fell short of its bar.', tone: 'bad' as const }
-          : { label: 'Nothing raised', why: 'The campaign is inside its tolerances, so no proposal was made.', tone: 'neutral' as const }
+          : { label: 'Nothing raised', why: 'On track.', tone: 'neutral' as const }
   );
 
-  const STAGES = ['Plan', 'Activate', 'Optimize', 'Report'];
 </script>
 
 {#if loading}
@@ -147,94 +189,31 @@
 {:else if c}
   <div class="page">
     <div class="main">
-    <nav class="crumbs"><a href={`${base}/today`}>Today</a> <span>/</span> {CLIENTS[c.clientId as ClientId].name}</nav>
-
-    <header class="head">
-      <div>
-        <span class="eyebrow">{CLIENTS[c.clientId as ClientId].name} · {CLIENTS[c.clientId as ClientId].category}</span>
-        <h1>{c.name}</h1>
-        <p class="obj">{c.objective}</p>
-      </div>
-      <dl class="figs">
-        <div><dt>Day</dt><dd>{c.day}/{c.flightDays}</dd></div>
-        <div><dt>Delivered</dt><dd>{eur(m.delivered)}</dd></div>
-        <div><dt>CPA</dt><dd class:bad={m.cpaVsTargetPct > 5}>CA${m.cpa.toFixed(2)}</dd></div>
-        <div><dt>Target</dt><dd>CA${c.targetCpaEur.toFixed(2)}</dd></div>
-        <div><dt>Pacing</dt><dd class:bad={m.pacing > 1.15}>{m.pacing.toFixed(2)}</dd></div>
-        {#if m.underfillEur > 0}
-          <div><dt>Underfilled</dt><dd class="bad">{eur(m.underfillEur)}</dd></div>
-        {/if}
-      </dl>
-    </header>
-
-    <div class="acts">
-      <a class="act primary" href={`${base}/client-report/${c.id}`}>Create client report</a>
-      {#if c.id === 'agropur-natrel-protein'}
-        <a class="act" href={`${base}/optimize`}>Replay this flight, tick by tick</a>
-      {/if}
-    </div>
-
-    <ol class="lifecycle">
-      {#each STAGES as s, i (s)}
-        <li class:active={i === 2}>{s}</li>
-      {/each}
-      <li class="note">This decision happens in Optimize, continuously, against the policy set in Plan</li>
-    </ol>
-
+    <h2 class="status">{c.summary ?? c.headline}</h2>
     <p class="headline">{c.headline}</p>
 
-    <JevPanel
-      steps={jevSteps}
-      outcome={jevOutcome}
-      meta={{ costUsd: p.costUsd, latencyMs: p.latencyMs ?? 0, source: p.source }}
-      raw={{
-        state: { campaign: c.name, day: c.day, flightDays: c.flightDays, targetCpaEur: c.targetCpaEur, metrics: m, lines: c.lines },
-        questions: [
-          { key: 'gate', type: 'noul', instructions: 'Does this campaign require a decision from the campaign manager right now? Judge it against its own objective, CPA target and pacing tolerance, not against a general notion of good performance.' },
-          { key: 'lever', type: 'choice', instructions: 'Which single lever best corrects this campaign against its objective? Retailer onsite, in-app and off-app publisher deals have finite supply, so a low fill rate means the inventory does not exist and bidding harder will not help. Programmatic is unbounded but costs more.', optionCount: Object.keys(p.leverDistribution).length },
-          { key: 'severity', type: 'score', instructions: 'How severe is the gap between current performance and the stated objective?' }
-        ],
-        answers: { gate: p.gateProbability, lever: p.lever, distribution: p.leverDistribution, confidence: p.leverConfidence, severity: p.severity }
-      }}
-    />
-
-    <h2 class="sh">Measurement basis and delivery quality</h2>
-    <div class="quality">
-      <div class="q">
-        <span>Attributed ROAS</span>
-        <strong>{m.roas.toFixed(2)}×</strong>
-        <small>
-          {c.measurement?.attributionWindowDays ?? 14} day window ·
-          {c.measurement?.ntbLookbackDays ?? 365} day new-to-brand lookback ·
-          {c.measurement?.impressionBasis ?? 'viewable'} impressions
-        </small>
+    {#if p.gateOpen}
+      <div class="proposed">
+        <span class="sug">Suggested</span>
+        <strong>{recommendation(c, p.lever as LeverId, p.targetSurface)}</strong>
+        <p class="meaning">{campaignWhy}</p>
+        {#if rec}
+          <DecisionCell
+            compact
+            entry={rec.decisions.find((d) => d.key === campaignKey(rec.pacing.dataThrough))}
+            needsYou={p.gateOpen}
+            action={LEVERS[p.lever as LeverId].label}
+            confidence={p.leverConfidence}
+            gate={p.gateProbability}
+            why={campaignWhy}
+            alternatives={Object.entries(p.leverDistribution as Record<string, number>).filter(([k]) => k !== p.lever).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([k]) => LEVERS[k as LeverId].label.toLowerCase())}
+            source={p.source === 'replay' ? 'jev_recorded' : p.source === 'sim' ? 'stand_in' : 'jev'}
+            onrule={(ruling) => ruleCampaign(ruling)}
+            onundo={() => remove(rec.decisions, campaignKey(rec.pacing.dataThrough))}
+          />
+        {/if}
       </div>
-      <div class="q" data-bad={m.discrepancyBreachesContract}>
-        <span>Max discrepancy</span>
-        <strong>{m.maxDiscrepancy}%</strong>
-        <small>
-          {#if m.discrepancyBreachesContract}
-            Above the 10% IAB and 4A's Standard Terms trigger. This is a contractual reconciliation
-            event, not something to optimise through
-          {:else if m.discrepancyBreachesMrc}
-            Above MRC's 5% materiality bar, below the 10% contractual trigger
-          {:else}
-            Within both the MRC 5% bar and the 10% contractual trigger
-          {/if}
-        </small>
-      </div>
-      <div class="q" data-bad={m.ivtBreachesMrc}>
-        <span>Invalid traffic</span>
-        <strong>{m.maxIvt}%</strong>
-        <small>Sophisticated IVT filtration is mandatory for outcome measurement, not optional</small>
-      </div>
-      <p class="qnote">
-        ROAS is shown with its basis because it is not comparable without one. Ovative and Albertsons
-        found ROAS varies by 63 percent on methodology alone across 573 campaigns, and using served
-        rather than viewable impressions overstates it by 35 percent. CPA is the agency's working
-        target here; attributed sales is what the retail media network actually reports.
-      </p>
-    </div>
+    {/if}
 
     <h2 class="sh">Where the money is going</h2>
     <table class="lines">
@@ -275,24 +254,84 @@
       </tbody>
     </table>
 
-    <p class="supply muted small">
-      Onsite and in-app: {SURFACES.sponsored_display.supply.toLowerCase()} · Off-app: {SURFACES.off_app.supply.toLowerCase()} · Programmatic: {SURFACES.programmatic.supply.toLowerCase()}. That asymmetry is why
-      underfill and overspend need opposite actions, and why bidding harder cannot fix a fill problem.
-    </p>
 
-    {#if p.gateOpen}
-      <div class="proposed">
-        <span class="eyebrow">Proposed</span>
-        <strong>{LEVERS[p.lever as LeverId].label}</strong>
-        {#if p.targetSurface}<span class="on">on {SURFACES[p.targetSurface as SurfaceId].label}</span>{/if}
-        <p class="meaning">{LEVERS[p.lever as LeverId].meaning}</p>
+
+    <details class="more">
+      <summary>How it was decided</summary>
+    <JevPanel
+      steps={jevSteps}
+      outcome={jevOutcome}
+      meta={{ costUsd: p.costUsd, latencyMs: p.latencyMs ?? 0, source: p.source }}
+      raw={{
+        state: { campaign: c.name, day: c.day, flightDays: c.flightDays, targetCpaEur: c.targetCpaEur, metrics: m, lines: c.lines },
+        questions: [
+          { key: 'gate', type: 'noul', instructions: 'Does this campaign require a decision from the campaign manager right now? Judge it against its own objective, CPA target and pacing tolerance, not against a general notion of good performance.' },
+          { key: 'lever', type: 'choice', instructions: 'Which single lever best corrects this campaign against its objective? Retailer onsite, in-app and off-app publisher deals have finite supply, so a low fill rate means the inventory does not exist and bidding harder will not help. Programmatic is unbounded but costs more.', optionCount: Object.keys(p.leverDistribution).length },
+          { key: 'severity', type: 'score', instructions: 'How severe is the gap between current performance and the stated objective?' }
+        ],
+        answers: { gate: p.gateProbability, lever: p.lever, distribution: p.leverDistribution, confidence: p.leverConfidence, severity: p.severity }
+      }}
+    />
+
+    </details>
+
+    <details class="more">
+      <summary>Measurement</summary>
+    <h2 class="sh">Measurement basis and delivery quality</h2>
+    <div class="quality">
+      <div class="q">
+        <span>Attributed ROAS</span>
+        <strong>{m.roas.toFixed(2)}×</strong>
+        <small>
+          {c.measurement?.attributionWindowDays ?? 14} day window ·
+          {c.measurement?.ntbLookbackDays ?? 365} day new-to-brand lookback ·
+          {c.measurement?.impressionBasis ?? 'viewable'} impressions
+        </small>
       </div>
-    {/if}
+      <div class="q" data-bad={m.discrepancyBreachesContract}>
+        <span>Max discrepancy</span>
+        <strong>{m.maxDiscrepancy}%</strong>
+        <small>
+          {#if m.discrepancyBreachesContract}
+            Above the 10% IAB and 4A's Standard Terms trigger. This is a contractual reconciliation
+            event, not something to optimise through
+          {:else if m.discrepancyBreachesMrc}
+            Above MRC's 5% materiality bar, below the 10% contractual trigger
+          {:else}
+            Within both the MRC 5% bar and the 10% contractual trigger
+          {/if}
+        </small>
+      </div>
+      <div class="q" data-bad={m.ivtBreachesMrc}>
+        <span>Invalid traffic</span>
+        <strong>{m.maxIvt}%</strong>
+        <small>Below the 5% MRC bar</small>
+      </div>
+      <p class="qnote">ROAS depends on method, so it is shown with its basis.</p>
     </div>
 
-    {#if rail.length}
-      <StatRail stats={rail} title="Campaign health" />
+    </details>
+
+    {#if c.id === 'agropur-natrel-protein'}
+      <div class="acts"><a class="act" href={`${base}/optimize`}>Replay this flight, tick by tick</a></div>
     {/if}
+    </div>
+  </div>
+{:else if !isBook && rec && paced}
+  <div class="page">
+    <p class="headline">
+      {rec.plan.objective}. Day {paced.daysElapsed} of {paced.flightDays}: {cad(paced.spend)} spent, {paced.pacing === null ? '—' : pct(paced.pacing)} of plan,
+      {paced.cpa === null ? 'no conversions yet' : `${cad(paced.cpa, 2)} per ${rec.plan.conversionName} against a ${cad(rec.plan.targetCpa, 2)} target`}.
+    </p>
+    <h2 class="section-title">Off plan</h2>
+    <ul class="offband">
+      {#each paced.rows.filter((r) => r.status === 'Overpacing' || r.status === 'Underpacing') as r (r.line.id)}
+        <li><span class="mp-pill" data-s={r.status}>{r.status}</span> {lineName(r.line)} · {r.pacing === null ? '—' : pct(r.pacing)} of plan · {CHANNELS[r.line.channel].label}</li>
+      {:else}
+        <li>Every line is on plan.</li>
+      {/each}
+    </ul>
+    <p class="muted">Suggestions are on <a href={`${base}/campaign/${page.params.id}/pacing`}>Delivery</a>.</p>
   </div>
 {:else}
   <div class="page"><p>Not found.</p></div>
@@ -302,30 +341,13 @@
   .acts { display: flex; gap: 0.5rem; margin: 1rem 0 0; flex-wrap: wrap; }
   .act { font-size: 0.82rem; padding: 0.4rem 0.8rem; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-1); color: var(--text-primary); text-decoration: none; }
   .act:hover { background: var(--hover); }
-  .act.primary { background: var(--series-1); border-color: var(--series-1); color: #fff; font-weight: 600; }
-  .act.primary:hover { filter: brightness(1.08); }
   .shell { display: grid; grid-template-columns: minmax(0, 1fr) 232px; gap: 1.1rem; align-items: start; }
-  .shell > .main { min-width: 0; }
   @media (max-width: 900px) { .shell { grid-template-columns: 1fr; } }
-  .crumbs { font-size: 0.76rem; color: var(--text-muted); margin-bottom: 0.6rem; }
-  .crumbs a { color: var(--text-secondary); text-decoration: none; }
-  .crumbs a:hover { text-decoration: underline; }
+  .offband { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.85rem; }
+  .section-title { font-size: 0.9rem; margin: 1rem 0 0.5rem; }
 
-  .head { display: flex; justify-content: space-between; gap: 2rem; align-items: flex-start; flex-wrap: wrap; }
-  .obj { color: var(--text-secondary); font-size: 0.85rem; margin: 0.3rem 0 0; max-width: 60ch; }
-  .figs { display: flex; gap: 1.3rem; margin: 0; flex-wrap: wrap; }
-  .figs dt { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
-  .figs dd { margin: 0.1rem 0 0; font-size: 1rem; font-variant-numeric: tabular-nums; }
-  .figs dd.bad, td.bad { color: var(--critical); }
   td.good { color: var(--good-text); }
-
-  .lifecycle { list-style: none; display: flex; align-items: center; gap: 0.35rem; padding: 0; margin: 1.25rem 0 1rem; flex-wrap: wrap; }
-  .lifecycle li {
-    font-size: 0.72rem; padding: 0.2rem 0.55rem; border-radius: 20px;
-    background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--border);
-  }
-  .lifecycle li.active { background: var(--series-1); color: #fff; border-color: var(--series-1); font-weight: 600; }
-  .lifecycle li.note { background: none; border: none; color: var(--text-muted); padding-left: 0.5rem; }
+  td.bad { color: var(--critical); }
 
   .headline { font-size: 0.92rem; color: var(--text-secondary); max-width: 92ch; margin: 0 0 1.5rem; }
 
@@ -354,12 +376,14 @@
   .q[data-bad='true'] strong { color: var(--critical); }
   .q small { display: block; font-size: 0.7rem; color: var(--text-secondary); margin-top: 0.15rem; max-width: 30ch; }
   .qnote { flex: 1 1 100%; font-size: 0.74rem; color: var(--text-muted); margin: 0.4rem 0 0; max-width: 100ch; }
-  .supply { margin-top: 0.7rem; max-width: 96ch; }
   .muted { color: var(--text-muted); }
-  .small { font-size: 0.75rem; }
 
   .proposed { margin-top: 1.5rem; padding: 0.9rem 1rem; background: var(--surface-1); border: 1px solid var(--border); border-left: 3px solid var(--series-1); border-radius: 0 var(--radius) var(--radius) 0; }
-  .proposed strong { font-size: 1.2rem; letter-spacing: -0.015em; }
-  .on { font-size: 0.85rem; color: var(--series-1); margin-left: 0.4rem; }
+  .proposed strong { font-size: 1.2rem; letter-spacing: -0.015em; display: block; margin: 0.1rem 0 0.2rem; }
+  .sug { font-size: 0.8rem; color: var(--text-muted); }
+  .status { font-size: 1.45rem; font-weight: 650; letter-spacing: -0.02em; margin: 1.2rem 0 0.3rem; }
+  details.more { margin-top: 1.2rem; border-top: 1px solid var(--grid); padding-top: 0.8rem; }
+  details.more > summary { cursor: pointer; font-weight: 600; font-size: 0.95rem; color: var(--text-secondary); }
+  details.more[open] > summary { margin-bottom: 0.8rem; }
   .meaning { font-size: 0.8rem; color: var(--text-secondary); margin: 0.35rem 0 0; max-width: 80ch; }
 </style>

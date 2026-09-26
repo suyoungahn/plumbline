@@ -77,7 +77,7 @@ pf.summary.source === 'replay'
 pf.summary.needsHuman > 0 && pf.summary.needsHuman < 8
   ? ok(`${pf.summary.needsHuman} need a human, ${pf.summary.handled} cleared`)
   : bad(`queue size ${pf.summary.needsHuman} is not demo-shaped`);
-for (const p2 of ['/today', '/reporting', '/clients', '/plan', '/flowchart', '/pacing', '/weekly-report', '/keywords', '/campaign/mccain-freezer-reset', '/client-report/mccain-freezer-reset', '/optimize']) {
+for (const p2 of ['/today', '/reporting', '/clients', '/campaigns', '/autonomy', '/welcome', '/campaign/pcexpress-holiday/plan', '/campaign/pcexpress-holiday/flowchart', '/campaign/pcexpress-holiday/pacing', '/campaign/pcexpress-holiday/report', '/campaign/mccain-freezer-reset/search-terms', '/campaign/mccain-freezer-reset/decisions', '/keywords', '/campaign/mccain-freezer-reset', '/client-report/mccain-freezer-reset', '/optimize']) {
   const r = await fetch(`${BASE}${p2}`);
   r.ok ? ok(`${p2} renders`) : bad(`${p2} returned ${r.status}`);
 }
@@ -106,8 +106,8 @@ else {
   lg.aggregate.baseline.compared === lg.calls.length ? ok(`rules-engine baseline computed for all ${lg.aggregate.baseline.compared}`) : warn(`baseline only for ${lg.aggregate.baseline.compared} of ${lg.calls.length}`);
   ok(`cost ${lg.aggregate.totalCostUsd}, median ${lg.aggregate.medianLatencyMs}ms, confidence ${lg.aggregate.confidence.min} to ${lg.aggregate.confidence.max}`);
 }
-const jr = await fetch(`${BASE}/jev`);
-jr.ok ? ok('/jev renders') : bad(`/jev returned ${jr.status}`);
+const jr = await fetch(`${BASE}/history`);
+jr.ok ? ok('/history renders') : bad(`/history returned ${jr.status}`);
 
 console.log('\nKey');
 existsSync('.env') ? ok('.env present') : warn('.env missing. Replay still works; live mode will not');

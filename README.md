@@ -15,23 +15,33 @@ closed set with calibrated probabilities and cannot generate text. A generative
 model writes the prose and is never allowed to choose. Every decision on screen is
 badged with its provenance.
 
-## The campaign flow
+## How it's organised
 
-One campaign, start to finish, driven by the fields you fill in:
+Four places: **Inbox** (everything that needs a person, across all campaigns),
+**Campaigns** (one sheet-like row per campaign), **Clients**, and the **Decision log**.
 
-1. **Plan**: the brief and every line item (channel, partner, tactic, targeting, KPI,
-   buy type, rate, budget). Jev checks while you type whether the retail, in-app and
-   publisher lines can actually be delivered against the inventory that exists, and
-   the French-creative gate blocks anything that cannot run in Quebec.
-2. **Flowchart**: weekly weights and retail moments spread each line across the flight.
-3. **Pacing**: each morning's platform numbers go in; planned-to-date, pacing status,
-   CPA and daily targets come out, and Jev flags the lines that need the manager.
-4. **Weekly report**: a two-page client status report drafted from the numbers, edited,
-   then printed or saved as PDF.
+Every campaign opens the same workspace, with tabs in the order the work happens:
+
+1. **Overview**: where the campaign stands and the model's campaign-level suggestion.
+2. **Plan**: the brief and every line item. While you type, the model checks whether the
+   retail, in-app and publisher lines can be delivered against the supply that exists,
+   and the French-creative gate blocks anything that cannot run in Quebec.
+3. **Flowchart**: weekly weights and retail moments spread each line across the flight.
+4. **Pacing**: actuals against the flowchart, fill against booked spend, and a suggestion
+   per line.
+5. **Search terms** (retail search campaigns): every term triaged, exceptions queued.
+6. **Decisions**: every approval, overrule and routine change, with its reason.
+7. **Report**: the two-page client status report, drafted from the numbers and the
+   decision record, then printed or saved as PDF.
+
+Every suggestion reads the same way: a band (Clear call, Judgment call, Unsure) with
+the exact probabilities on hover, the one or two facts behind it, and Approve or
+Overrule. **Shadow mode** (on for a new team) records routine changes as what the rules
+would do and applies nothing until the team turns it off.
 
 **Download media plan (.xlsx)** exports the client workbook: Media Plan, Flowchart and
 an internal Pacing Tracker, with inputs in blue and everything else as live Excel
-formulas. Edits are kept in the browser; **Reset to sample** restores the example.
+formulas. Edits are kept in the browser; each campaign can be reset from its Plan tab.
 
 ## Run it locally
 

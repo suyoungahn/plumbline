@@ -1,6 +1,8 @@
 <script lang="ts">
   import { base } from '$app/paths';
-  import { doc } from '$lib/mediaplan/store.svelte';
+  import { page } from '$app/state';
+  import { records } from '$lib/mediaplan/store.svelte';
+  const doc = $derived(records[page.params.id!]);
   import { CHANNELS } from '$lib/mediaplan/types';
   import { addDays, cad, cadK, dayMonth, flowTotals, isHeld, pct, spreadEvenly, weekStart, weekly, weightTotal } from '$lib/mediaplan/calc';
   import { downloadWorkbook } from '$lib/mediaplan/xlsx';
@@ -34,16 +36,12 @@
 <div class="page">
   <header class="mp-top">
     <div>
-      <span class="eyebrow">Step 2 of 4 · {plan.campaign}</span>
-      <h1>Flowchart</h1>
-      <p class="lede">
-        How the budget is spread across the flight. Set a weight and the retail moment for each week;
-        every line is flighted by the same weights unless it is held. Pacing is measured against this.
-      </p>
+      <h2 class="tab-title">Flowchart</h2>
+      <p class="lede">How the budget spreads across the weeks.</p>
     </div>
     <div class="mp-actions">
       <button onclick={() => spreadEvenly(doc.plan)}>Spread evenly</button>
-      <button class="mp-primary" onclick={exportXlsx} disabled={exporting}>{exporting ? 'Building…' : 'Download media plan (.xlsx)'}</button>
+      <button onclick={exportXlsx} disabled={exporting}>{exporting ? 'Building…' : 'Export to Excel'}</button>
     </div>
   </header>
 
@@ -69,10 +67,7 @@
         </div>
       {/each}
     </div>
-    <p class="mp-note" style="margin: 0.6rem 0 0">
-      Weights total <strong class={weightsOk ? 'mp-ok' : 'mp-bad'}>{pct(wsum, 1)}</strong>{weightsOk ? '' : ', and must equal 100%'}.
-      The flight has {plan.weeks.length} weeks; change the dates on the Plan step to add or remove weeks.
-    </p>
+    <p class="mp-note" style="margin: 0.6rem 0 0">Weights total <strong class={weightsOk ? 'mp-ok' : 'mp-bad'}>{pct(wsum, 1)}</strong>.</p>
   </section>
 
   <section class="mp-card">
@@ -123,13 +118,10 @@
         </tfoot>
       </table>
     </div>
-    <p class="mp-note" style="margin: 0.6rem 0 0">
-      Shaded cells are weeks the line is live. Held lines, like the test and learn reserve, stay unflighted
-      until the client approves their release, so the gap in cumulative % is intentional.
-    </p>
+    <p class="mp-note" style="margin: 0.6rem 0 0">Held lines stay off until released.</p>
   </section>
 
-  <div class="mp-next"><a class="next" href={`${base}/pacing`}>Next: track pacing against this →</a></div>
+  <div class="mp-next"><a class="next" href={`${base}/campaign/${page.params.id}/pacing`}>Next: track pacing against this →</a></div>
 </div>
 
 <style>

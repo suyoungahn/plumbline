@@ -1,18 +1,15 @@
-import { STATIC_BUILD } from '$lib/build-target';
-
-export const prerender = STATIC_BUILD;
-
-import { json } from '@sveltejs/kit';
+// The search-term report, evaluated term by term. Shared by the all-campaigns view and
+// each campaign's Search terms tab.
 import { decideTerm } from '$lib/server/decide-term';
 import { campaignById } from '$lib/scenario/campaigns';
 import { SEARCH_TERMS } from '$lib/scenario/search-terms';
 import { CLIENTS } from '$lib/portfolio';
 import { JEV_COST_PER_CALL_USD, TERM_ACTIONS, type TermActionId } from '$lib/keywords';
-import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async () => {
+
+export async function keywordsReport(campaignId?: string) {
   const rows = await Promise.all(
-    SEARCH_TERMS.map(async (t) => {
+    SEARCH_TERMS.filter((t) => !campaignId || t.campaignId === campaignId).map(async (t) => {
       const c = campaignById(t.campaignId)!;
       const decision = await decideTerm(t, c);
       return {
@@ -46,7 +43,7 @@ export const GET: RequestHandler = async () => {
   const recordedCost = rows.reduce((s, r) => s + (r.decision.source === 'sim' ? 0 : r.decision.costUsd), 0);
   const simCalls = rows.filter((r) => r.decision.source === 'sim').length;
 
-  return json({
+  return {
     queue,
     groups,
     summary: {
@@ -64,5 +61,5 @@ export const GET: RequestHandler = async () => {
       costEstimated: simulated,
       source: simulated ? (sources.size > 1 ? 'mixed' : 'sim') : sources.has('live') ? 'live' : 'replay'
     }
-  });
-};
+  };
+}

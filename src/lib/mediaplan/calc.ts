@@ -21,7 +21,7 @@ export const dayMonth = (iso: string) => {
 export const cad = (n: number, decimals = 0) =>
   `${n < 0 ? '-' : ''}${CUR}${Math.abs(n).toLocaleString('en-CA', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
 export const cadK = (n: number) =>
-  n >= 1_000_000 ? `${CUR}${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 2)}M` : `${CUR}${(n / 1000).toFixed(1)}K`;
+  n >= 1_000_000 ? `${CUR}${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 2)}M` : `${CUR}${(n / 1000).toFixed(n >= 100_000 || Math.round(n / 100) % 10 === 0 ? 0 : 1)}K`;
 export const compact = (n: number) =>
   n >= 1_000_000 ? `${(n / 1_000_000).toFixed(n >= 10_000_000 ? 1 : 2)}M` : n >= 1000 ? `${(n / 1000).toFixed(0)}K` : String(Math.round(n));
 export const pct = (n: number, decimals = 0) => `${(n * 100).toFixed(decimals)}%`;
@@ -30,6 +30,8 @@ export const signedPct = (n: number) => `${n > 0 ? '+' : ''}${(n * 100).toFixed(
 export const flightDays = (p: MediaPlan) => daysBetween(p.flightStart, p.flightEnd) + 1;
 export const weekCount = (p: MediaPlan) => Math.max(1, Math.ceil(flightDays(p) / 7));
 export const weekStart = (p: MediaPlan, i: number) => addDays(p.flightStart, i * 7);
+// The last week of a flight that isn't a whole number of weeks is a short stub.
+export const daysInWeek = (p: MediaPlan, i: number) => Math.max(1, Math.min(7, flightDays(p) - i * 7));
 
 // "Paid social (Meta)", the way a client report names a line.
 export function lineName(l: PlanLine): string {
@@ -86,16 +88,24 @@ export function fitWeeks(p: MediaPlan) {
   else while (p.weeks.length < n) p.weeks.push({ weight: 0, moment: '' });
 }
 
+// Even spend per day: each week's weight is its share of the flight's days.
+export function evenWeights(p: MediaPlan): number[] {
+  const days = flightDays(p);
+  const w = Array.from({ length: weekCount(p) }, (_, i) => Math.round((daysInWeek(p, i) / days) * 10000) / 10000);
+  w[w.length - 1] = Math.round((1 - w.slice(0, -1).reduce((s, v) => s + v, 0)) * 10000) / 10000;
+  return w;
+}
+
 export function spreadEvenly(p: MediaPlan) {
-  const n = p.weeks.length;
-  p.weeks.forEach((w, i) => (w.weight = Number((i === n - 1 ? 1 - (1 / n) * (n - 1) : 1 / n).toFixed(4))));
+  const w = evenWeights(p);
+  p.weeks.forEach((wk, i) => (wk.weight = w[i] ?? 0));
 }
 
 // Pacing, as the tracker computes it: each flowchart week is prorated by how much of
 // it has elapsed, so "planned to date" moves day by day.
 
 export function weekElapsed(p: MediaPlan, pace: Pacing): number[] {
-  return p.weeks.map((_, i) => Math.max(0, Math.min(1, (daysBetween(weekStart(p, i), pace.dataThrough) + 1) / 7)));
+  return p.weeks.map((_, i) => Math.max(0, Math.min(1, (daysBetween(weekStart(p, i), pace.dataThrough) + 1) / daysInWeek(p, i))));
 }
 
 export function currentWeekIndex(p: MediaPlan, pace: Pacing): number {
@@ -123,7 +133,7 @@ export function paceLine(p: MediaPlan, pace: Pacing, l: PlanLine) {
     status,
     spentPct: l.budget > 0 ? a.spend / l.budget : 0,
     remaining: l.budget - a.spend,
-    dailyTarget: weekly(p, l)[currentWeekIndex(p, pace)] / 7,
+    dailyTarget: weekly(p, l)[currentWeekIndex(p, pace)] / daysInWeek(p, currentWeekIndex(p, pace)),
     cpa,
     cpaVsTarget: cpa === null || !p.targetCpa ? null : cpa / p.targetCpa - 1
   };

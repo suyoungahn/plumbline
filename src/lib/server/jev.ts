@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { simulate } from '$lib/heuristic';
+import { FIXTURES } from './fixtures';
 import type { JevAnswer, JevQuestion, JevResult, JevUsage } from '$lib/jev-types';
 import { env } from '$env/dynamic/private';
 
@@ -140,6 +141,7 @@ export async function askJev(
   }
 
   if (mode === 'replay') {
+    if (FIXTURES[name]) return normalize(FIXTURES[name], { replayed: true, simulated: false });
     try {
       return normalize(JSON.parse(await readFile(path, 'utf8')), {
         replayed: true,

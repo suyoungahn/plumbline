@@ -13,11 +13,12 @@ tolerances, the permitted lever set, and a threshold per lever. A Policy is
 authored once (from the client brief) and then continuously evaluated. It is not
 a document, and nothing re-keys it into another system.
 
-Contrast with **Media plan**: the artifact a Policy replaces. A deck plus a
-flowchart spreadsheet, produced upstream by a planner, then manually re-entered
-into the ad server by a different person. IAB lists that re-entry and the audit
-of that re-entry as two separate billable ad ops tasks. Both tasks exist only
-because the plan is a document.
+The Policy and the **Media plan** are one record. People author it where they
+already work, in a line-item grid with a flowchart, and the client signs off the
+lines and the lever authority together. What goes away is the document as the
+source of truth: the old flow built a deck and a spreadsheet, then someone
+re-entered them into each platform and someone else audited the re-entry. Here the
+Excel workbook and the PDF are exports of the record, and nothing is re-keyed.
 
 **Tick**
 One observation of a Campaign at a point in time. Carries spend, pacing, CPA,
@@ -142,9 +143,11 @@ function.
 The set of Proposals awaiting a human ruling. The operator's actual job in the
 new model. Not a dashboard: a worklist that empties.
 
-**Ledger**
-The append-only record of every Proposal, its probabilities, the ruling, and who
-or what made it. The Ledger is what makes Report possible without anyone
+**Ledger** (the **Decisions** tab)
+The record of every Proposal, its probabilities, the ruling, and who or what made
+it, kept per campaign: campaign-level levers, pacing lines and search terms alike.
+Routine changes below the "needs a person" bar are recorded as applied automatically,
+or, in **shadow mode**, as what would have been applied. The Ledger is what makes Report possible without anyone
 building a deck, and it is the audit trail a regulated client asks for.
 
 ## Roles

@@ -20,7 +20,7 @@ type Lexicon = {
   sensitive: string[];
 };
 
-export const LEXICON: Record<ClientId, Lexicon> = {
+export const LEXICON: Partial<Record<ClientId, Lexicon>> = {
   mccain: {
     categoryWords: ['fries', 'wedges', 'hash browns', 'onion rings', 'tots', 'frites', 'pommes de terre'],
     competitorBrands: ['cavendish', 'great value', 'no name'],
@@ -136,7 +136,7 @@ function metricsFor(shape: Shape, target: number, rand: () => number) {
 }
 
 function termsFor(c: Campaign, index: number): SearchTerm[] {
-  const lex = LEXICON[c.clientId];
+  const lex = LEXICON[c.clientId]!;
   const rand = rng(1009 * (index + 1));
   const retailers = [...new Set(c.lines.filter((l) => l.surface === 'sponsored_display' || l.surface === 'in_app').map((l) => l.retailer!))];
   const out: SearchTerm[] = [];

@@ -3,27 +3,24 @@
   import { page } from '$app/state';
   import '../app.css';
   import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
   import { restore } from '$lib/state.svelte';
-  import { doc, restoreCampaign, saveCampaign } from '$lib/mediaplan/store.svelte';
+  import { records, restoreCampaigns, restoreSettings, saveCampaigns, saveSettings, settings } from '$lib/mediaplan/store.svelte';
 
   let { children } = $props();
 
-  // One campaign, start to finish, and then the whole book the manager runs.
-  const campaignSteps = [
-    { href: '/plan', label: 'Plan', n: 1 },
-    { href: '/flowchart', label: 'Flowchart', n: 2 },
-    { href: '/pacing', label: 'Pacing', n: 3 },
-    { href: '/weekly-report', label: 'Weekly report', n: 4 }
-  ];
-  const book = [
-    { href: '/today', label: 'Today' },
-    { href: '/keywords', label: 'Search terms' },
-    { href: '/clients', label: 'Clients' },
-    { href: '/reporting', label: 'Reporting' },
-    { href: '/jev', label: 'Decision log' }
+  // Four places: what needs you, every campaign (each with the same tabs), the
+  // client view, and the record of every decision.
+  const nav = [
+    { href: '/today', label: 'Inbox', also: ['/keywords'] },
+    { href: '/campaigns', label: 'Campaigns', also: ['/campaign', '/optimize', '/client-report'] },
+    { href: '/clients', label: 'Clients', also: ['/reporting'] },
+    { href: '/history', label: 'History', also: [] as string[] },
+    { href: '/settings', label: 'Settings', also: [] as string[] }
   ];
 
   const current = $derived(page.url.pathname);
+  const isIntro = $derived(current === `${base}/welcome`);
 
   const onStage = (href: string) => {
     const full = `${base}${href}`;
@@ -32,43 +29,54 @@
 
   onMount(() => {
     restore();
-    restoreCampaign();
+    restoreSettings();
+    restoreCampaigns();
+    // First visit: the four-screen intro before the product.
+    const path = page.url.pathname;
+    if (!settings.introSeen && (path === `${base}/` || path === `${base}/today` || path === base)) goto(`${base}/welcome`);
   });
 
   $effect(() => {
-    JSON.stringify(doc);
-    saveCampaign();
+    JSON.stringify(records);
+    saveCampaigns();
+  });
+
+  $effect(() => {
+    JSON.stringify(settings);
+    saveSettings();
   });
 </script>
 
+{#if isIntro}
+  {@render children()}
+{:else}
 <div class="shell">
   <header class="no-print">
     <div class="brand">
       <span class="mark" aria-hidden="true"></span>
       <div>
         <strong>Plumbline</strong>
-        <span class="sub">Northfield Media · Retail Media, Canada</span>
+        <span class="sub">Northfield Media · Sample data</span>
       </div>
     </div>
 
-    <nav aria-label="Campaign steps">
-      <span class="group">Campaign</span>
-      {#each campaignSteps as s (s.href)}
-        <a href={`${base}${s.href}`} class:active={onStage(s.href)} aria-current={onStage(s.href) ? 'page' : undefined}>
-          <span class="n">{s.n}</span>{s.label}
-        </a>
+    <nav aria-label="Main">
+      {#each nav as s (s.href)}
+        {@const on = [s.href, ...s.also].some(onStage)}
+        <a href={`${base}${s.href}`} class:active={on} aria-current={on ? 'page' : undefined}>{s.label}</a>
       {/each}
     </nav>
-    <nav aria-label="Agency book" class="book">
-      <span class="group">Book</span>
-      {#each book as s (s.href)}
-        <a href={`${base}${s.href}`} class:active={onStage(s.href)} aria-current={onStage(s.href) ? 'page' : undefined}>{s.label}</a>
-      {/each}
-    </nav>
+
+    <a class="how" href={`${base}/welcome`}>How it works</a>
+    <label class="shadow" class:on={settings.shadow} title="On: Plumbline suggests and records, and nothing changes on any platform. Turn it off when the team is ready for routine changes to apply on their own.">
+      <input type="checkbox" bind:checked={settings.shadow} />
+      Learning mode {settings.shadow ? 'on' : 'off'}
+    </label>
   </header>
 
   <main>{@render children()}</main>
 </div>
+{/if}
 
 <style>
   .shell { min-height: 100dvh; display: flex; flex-direction: column; }
@@ -90,8 +98,6 @@
   }
 
   nav { display: flex; gap: 0.25rem; align-items: center; flex-wrap: wrap; }
-  nav.book { margin-left: auto; }
-  .group { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); margin-right: 0.2rem; }
   nav a {
     display: flex; align-items: center; gap: 0.45rem;
     padding: 0.4rem 0.75rem; border-radius: 7px;
@@ -104,18 +110,14 @@
     background: var(--surface-2); color: var(--text-primary);
     border-color: var(--border);
   }
-  nav .n {
-    display: grid; place-items: center;
-    width: 17px; height: 17px; border-radius: 50%;
-    font-size: 0.65rem; font-weight: 700;
-    background: var(--surface-3); color: var(--text-muted);
-  }
-  nav a.active .n { background: var(--series-1); color: #fff; }
 
   main { flex: 1; }
+  .how { margin-left: auto; font-size: 0.82rem; color: var(--text-secondary); text-decoration: none; }
+  .how:hover { color: var(--text-primary); }
+  .shadow { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; color: var(--text-secondary); padding: 0.25rem 0.6rem; border-radius: 20px; border: 1px solid var(--border); cursor: help; }
+  .shadow.on { background: color-mix(in srgb, var(--series-7) 12%, transparent); color: var(--series-7); border-color: color-mix(in srgb, var(--series-7) 40%, transparent); font-weight: 600; }
 
   @media (max-width: 720px) {
     header { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
-    nav.book { margin-left: 0; }
   }
 </style>
