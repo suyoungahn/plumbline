@@ -20,6 +20,7 @@ export const POST: RequestHandler = async ({ request }) => {
         gateProbability: gate.probability,
         needsYou: gate.probability >= GATE_THRESHOLD,
         lever: lever.selected as LeverId,
+        distribution: lever.probabilities,
         confidence: lever.confidence,
         severity: severity.score,
         costUsd: r.usage.cost,

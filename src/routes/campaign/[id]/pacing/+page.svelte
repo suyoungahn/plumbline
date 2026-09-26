@@ -1,11 +1,14 @@
 <script lang="ts">
   import { base } from '$app/paths';
-  import { LEVERS } from '$lib/domain';
+  import { LEVERS, type LeverId } from '$lib/domain';
+  import DecisionCell from '$lib/components/DecisionCell.svelte';
+  import { pacingKey, pacingWhy, remove, upsert } from '$lib/mediaplan/decisions';
+  import type { DecisionEntry, Ruling } from '$lib/mediaplan/types';
   import { page } from '$app/state';
-  import { records } from '$lib/mediaplan/store.svelte';
+  import { records, settings } from '$lib/mediaplan/store.svelte';
   const doc = $derived(records[page.params.id!]);
   import { CHANNELS } from '$lib/mediaplan/types';
-  import { cad, pct, paceAll, shortDate, signedPct } from '$lib/mediaplan/calc';
+  import { cad, lineName, pct, paceAll, shortDate, signedPct, type PacedLine } from '$lib/mediaplan/calc';
   import { localSuggestions, pacingLineState, type LineSuggestion } from '$lib/mediaplan/pacing-jev';
   import { downloadWorkbook } from '$lib/mediaplan/xlsx';
 
@@ -39,7 +42,56 @@
   });
 
   const hasBooked = $derived(Object.values(doc.pacing.actuals).some((a) => a.booked));
-  const needsYou = $derived(suggestions.filter((s) => s.needsYou).length);
+  const needsYou = $derived(
+    suggestions.filter((s, i) => s.needsYou && t.rows[i] && !doc.decisions.some((d) => d.key === pacingKey(doc.pacing.dataThrough, t.rows[i].line.id))).length
+  );
+
+  const alternatives = (s: LineSuggestion) =>
+    Object.entries(s.distribution ?? {})
+      .filter(([k]) => k !== s.lever)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 2)
+      .map(([k]) => LEVERS[k as LeverId].label.toLowerCase());
+
+  function entryFor(r: PacedLine, s: LineSuggestion, ruling: Ruling): DecisionEntry {
+    return {
+      key: pacingKey(doc.pacing.dataThrough, r.line.id),
+      date: doc.pacing.dataThrough,
+      kind: 'pacing',
+      subject: lineName(r.line),
+      action: LEVERS[s.lever].label,
+      why: pacingWhy(r, plan.targetCpa),
+      gate: s.gateProbability,
+      confidence: s.confidence,
+      source: s.source === 'sim' ? 'stand_in' : 'jev',
+      ruling,
+      ruledBy: ruling === 'auto' || ruling === 'shadow' ? 'rules' : 'manager',
+      note: r.actual.note || undefined
+    };
+  }
+
+  function rule(r: PacedLine, s: LineSuggestion, ruling: 'approved' | 'overruled') {
+    upsert(doc.decisions, entryFor(r, s, ruling));
+  }
+
+  // Routine actions below the "needs a person" bar are applied and recorded as
+  // automatic, so they show up in the decision record and the weekly report.
+  $effect(() => {
+    suggestions.forEach((s, i) => {
+      const r = t.rows[i];
+      if (!r || !s) return;
+      const key = pacingKey(doc.pacing.dataThrough, r.line.id);
+      const existing = doc.decisions.find((d) => d.key === key);
+      const routine = !s.needsYou && s.lever !== 'no_action' && r.status !== 'Held';
+      const mode: Ruling = settings.shadow ? 'shadow' : 'auto';
+      const automatic = existing?.ruling === 'auto' || existing?.ruling === 'shadow';
+      if (routine && (!existing || (automatic && (existing.action !== LEVERS[s.lever].label || existing.ruling !== mode)))) {
+        upsert(doc.decisions, entryFor(r, s, mode));
+      } else if (!routine && automatic) {
+        remove(doc.decisions, key);
+      }
+    });
+  });
   const source = $derived(suggestions[0]?.source ?? 'sim');
 
   async function exportXlsx() {
@@ -96,9 +148,9 @@
         <thead>
           <tr>
             <th>Line</th><th class="r">Net budget</th><th class="r">Planned to date</th><th class="r">Actual to date</th>
-            <th class="r">Pacing</th><th>Status</th>{#if hasBooked}<th class="r">Fill</th>{/if}<th class="r">Remaining</th><th class="r">Yesterday</th><th class="r">Daily target</th>
+            <th class="r" title="Spend to date ÷ what the flowchart planned by today. Outside the band above, the line is flagged.">Pacing</th><th>Status</th>{#if hasBooked}<th class="r" title="Spend delivered ÷ spend the retailer or publisher booked. Low fill means the inventory ran out, which bidding harder cannot fix.">Fill</th>{/if}<th class="r">Remaining</th><th class="r">Yesterday</th><th class="r">Daily target</th>
             <th class="r">Impressions</th><th class="r">{plan.conversionName}s</th><th class="r">CPA</th><th class="r">vs target</th>
-            <th>Jev suggests</th><th>Action / notes</th>
+            <th title="What the model suggests for this line today, how sure it is, and why. Approve or overrule; either way it goes on the Decisions tab.">Suggested</th><th>Action / notes</th>
           </tr>
         </thead>
         <tbody>
@@ -127,8 +179,19 @@
                 </td>
                 <td class="sugg">
                   {#if s}
-                    {#if s.needsYou}<strong>{LEVERS[s.lever].label}</strong><small>needs you · {pct(s.gateProbability)}</small>
-                    {:else}<span class="mp-muted">{s.lever === 'no_action' ? 'Leave it' : LEVERS[s.lever].label}</span>{/if}
+                    <DecisionCell
+                      entry={doc.decisions.find((d) => d.key === pacingKey(doc.pacing.dataThrough, r.line.id))}
+                      needsYou={s.needsYou}
+                      action={LEVERS[s.lever].label}
+                      confidence={s.confidence}
+                      gate={s.gateProbability}
+                      why={pacingWhy(r, plan.targetCpa)}
+                      alternatives={alternatives(s)}
+                      source={s.source === 'sim' ? 'stand_in' : 'jev'}
+                      idle={r.status === 'Held' ? 'Held' : 'Nothing to do'}
+                      onrule={(ruling) => rule(r, s, ruling)}
+                      onundo={() => remove(doc.decisions, pacingKey(doc.pacing.dataThrough, r.line.id))}
+                    />
                   {/if}
                 </td>
                 <td><textarea class="note" rows="1" bind:value={a.note} aria-label="Action notes"></textarea></td>
@@ -182,8 +245,7 @@
   .pace .money { width: 7.5rem; }
   .pace .small-in { width: 5.5rem; }
   .pace tr.flag td:first-child { box-shadow: inset 3px 0 0 var(--serious); }
-  .sugg { min-width: 9rem; font-size: 0.75rem; }
-  .sugg small { display: block; color: var(--serious); font-size: 0.68rem; }
+  .sugg { min-width: 12rem; }
   .note { font: inherit; font-size: 0.76rem; min-width: 16rem; width: 100%; color: var(--text-primary); background: var(--surface-2); border: 1px solid var(--border); border-radius: 7px; padding: 0.25rem 0.4rem; resize: vertical; }
   .next { font-weight: 600; font-size: 0.9rem; }
 </style>

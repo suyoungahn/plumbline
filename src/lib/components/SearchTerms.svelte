@@ -5,6 +5,8 @@
   import { MANAGER, type ClientId } from '$lib/portfolio';
   import { TERM_ACTIONS, TERM_QUESTIONS, type SearchTerm, type TermActionId, type TermDecision } from '$lib/keywords';
   import { LEXICON } from '$lib/scenario/search-terms';
+  import { records } from '$lib/mediaplan/store.svelte';
+  import { band, remove, termKey, upsert } from '$lib/mediaplan/decisions';
 
   type Row = {
     term: SearchTerm;
@@ -17,7 +19,6 @@
   let groups = $state<Group[]>([]);
   let summary = $state<Record<string, any> | null>(null);
   let loading = $state(true);
-  let rulings = $state<Record<string, 'approved' | 'rejected'>>({});
 
   // Pass a campaign id to show one campaign's terms; leave it out for the whole book.
   let { campaignId }: { campaignId?: string } = $props();
@@ -25,7 +26,6 @@
   $effect(() => {
     const url = campaignId ? `${base}/api/keywords/${campaignId}` : `${base}/api/keywords/all`;
     loading = true;
-    rulings = {};
     fetch(url)
       .then((res) => res.json())
       .then((j) => {
@@ -51,7 +51,28 @@
     return 'Material spend sitting right at target CPA. Jev is split between the options, so it asks instead of guessing.';
   }
 
-  const remaining = $derived(queue.filter((r) => !rulings[r.term.id]).length);
+  // Rulings live in each campaign's decision record, so they survive a reload and
+  // feed that campaign's weekly report.
+  const rulingFor = (r: Row) => records[r.campaign.id]?.decisions.find((d) => d.key === termKey(r.term.id));
+  const remaining = $derived(queue.filter((r) => !rulingFor(r)).length);
+
+  function rule(r: Row, ruling: 'approved' | 'overruled') {
+    const rec = records[r.campaign.id];
+    if (!rec) return;
+    upsert(rec.decisions, {
+      key: termKey(r.term.id),
+      date: rec.pacing.dataThrough,
+      kind: 'search_term',
+      subject: `"${r.term.term}" on ${r.term.retailer}`,
+      action: TERM_ACTIONS[r.decision.action].label,
+      why: why(r),
+      gate: r.decision.gateProbability,
+      confidence: r.decision.confidence,
+      source: r.decision.source === 'sim' ? 'stand_in' : r.decision.source === 'replay' ? 'jev_recorded' : 'jev',
+      ruling,
+      ruledBy: 'manager'
+    });
+  }
   const pct = (n: number) => `${(n * 100).toFixed(0)}%`;
 </script>
 
@@ -114,7 +135,8 @@
     <ul class="queue">
       {#each queue as r (r.term.id)}
         {@const c = cpa(r.term)}
-        {@const ruled = rulings[r.term.id]}
+        {@const b = band(r.decision.confidence)}
+        {@const ruled = rulingFor(r)?.ruling}
         <li class="card" data-ruled={ruled ?? ''}>
           <div class="card-top">
             <div>
@@ -153,17 +175,17 @@
               />
             </div>
             <div class="jevline">
-              <span class="jl"><code>noul</code> needs a person <strong>{pct(r.decision.gateProbability)}</strong></span>
-              <span class="jl"><code>choice</code> confidence <strong>{pct(r.decision.confidence)}</strong></span>
-              <span class="jl"><code>score</code> severity <strong>{r.decision.severity.toFixed(1)}/4</strong></span>
+              <span class="bandchip" data-b={b.key} title={`${pct(r.decision.gateProbability)} that this needs a person; ${pct(r.decision.confidence)} confidence in the action; severity ${r.decision.severity.toFixed(1)} of 4. ${b.hint}`}>{b.label}</span>
+              <span class="jl">{b.hint}</span>
+              <span class="jl src">{r.decision.source === 'sim' ? 'Stand-in rules' : 'Jev'}</span>
             </div>
             <div class="btns">
               {#if ruled}
                 <span class="ruled">{ruled === 'approved' ? 'Approved' : 'Overruled'}</span>
-                <button class="link" onclick={() => delete rulings[r.term.id]}>undo</button>
+                <button class="link" onclick={() => remove(records[r.campaign.id].decisions, termKey(r.term.id))}>undo</button>
               {:else}
-                <button class="primary" onclick={() => (rulings[r.term.id] = 'approved')}>Approve</button>
-                <button onclick={() => (rulings[r.term.id] = 'rejected')}>Overrule</button>
+                <button class="primary" onclick={() => rule(r, 'approved')}>Approve</button>
+                <button onclick={() => rule(r, 'overruled')}>Overrule</button>
               {/if}
             </div>
           </div>
@@ -207,15 +229,15 @@
     <section class="asked">
       <h2 class="section-head">What Jev is asked about every term</h2>
       <ol>
-        <li><code>noul</code> {TERM_QUESTIONS.gate.instructions}</li>
+        <li><strong>Does it need a person?</strong> {TERM_QUESTIONS.gate.instructions}</li>
         <li>
-          <code>choice</code> Which single action is right for this search term? It can only pick
+          <strong>Which action?</strong> Which single action is right for this search term? It can only pick
           from this list, and cannot invent keywords or write anything:
           <span class="opts">
             {#each Object.values(TERM_ACTIONS) as a (a.label)}<span>{a.label}</span>{/each}
           </span>
         </li>
-        <li><code>score</code> {TERM_QUESTIONS.severity.instructions}</li>
+        <li><strong>How much is at stake?</strong> {TERM_QUESTIONS.severity.instructions}</li>
       </ol>
       <p class="muted small">
         Relevance is judged against each client's own category terms, competitor list and
@@ -260,7 +282,7 @@
     border-left: 3px solid var(--serious); border-radius: var(--radius);
   }
   .card[data-ruled='approved'] { border-left-color: var(--good); opacity: 0.6; }
-  .card[data-ruled='rejected'] { border-left-color: var(--text-muted); opacity: 0.6; }
+  .card[data-ruled='overruled'] { border-left-color: var(--text-muted); opacity: 0.6; }
   .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
   .client { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); display: block; }
   .term { font-size: 1.05rem; letter-spacing: -0.01em; display: block; margin: 0.1rem 0; }
@@ -275,9 +297,12 @@
   .decide { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto; gap: 1rem; align-items: end; margin-top: 0.7rem; padding-top: 0.6rem; border-top: 1px solid var(--grid); }
   .proposed { font-size: 0.8rem; display: block; margin-bottom: 0.3rem; }
   .jevline { display: flex; flex-direction: column; gap: 0.2rem; }
+  .bandchip { align-self: flex-start; font-size: 0.64rem; font-weight: 700; padding: 0.08rem 0.4rem; border-radius: 20px; cursor: help; }
+  .bandchip[data-b='clear'] { background: color-mix(in srgb, var(--good) 16%, transparent); color: var(--good-text); }
+  .bandchip[data-b='judgment'] { background: color-mix(in srgb, var(--warning) 24%, transparent); color: var(--text-primary); }
+  .bandchip[data-b='unsure'] { background: color-mix(in srgb, var(--serious) 18%, transparent); color: var(--text-primary); }
+  .src { font-style: italic; }
   .jl { font-size: 0.73rem; color: var(--text-muted); display: inline-flex; align-items: baseline; gap: 0.3rem; }
-  .jl code, .asked code { font-size: 0.62rem; font-weight: 700; background: var(--surface-3); padding: 0.05rem 0.28rem; border-radius: 3px; color: var(--text-secondary); }
-  .jl strong { color: var(--text-primary); font-variant-numeric: tabular-nums; }
   .btns { display: flex; gap: 0.4rem; align-items: center; }
   .ruled { font-size: 0.78rem; font-weight: 600; }
   .link { background: none; border: none; color: var(--series-1); font-size: 0.75rem; padding: 0; cursor: pointer; }

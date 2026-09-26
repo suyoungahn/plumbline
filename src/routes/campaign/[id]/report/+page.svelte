@@ -6,7 +6,7 @@
   const doc = $derived(records[page.params.id!]);
   import { cad, cadK, compact, lineName, paceAll, pct, shortDate, signedPct } from '$lib/mediaplan/calc';
   import { CHANNELS } from '$lib/mediaplan/types';
-  import { draftComingUp, draftHeadline, draftSummary } from '$lib/mediaplan/report-draft';
+  import { draftChanges, draftComingUp, draftHeadline, draftSummary } from '$lib/mediaplan/report-draft';
 
   const plan = $derived(doc.plan);
   const pace = $derived(doc.pacing);
@@ -32,9 +32,7 @@
   }
 
   function pullChanges() {
-    doc.report.changes = t.rows
-      .filter((x) => x.actual.note.trim() && x.status !== 'Held' && x.line.role !== 'non_working')
-      .map((x) => `**${lineName(x.line)}${x.pacing !== null ? ` (${pct(x.pacing)} paced)` : ''}:** ${x.actual.note.trim()}`);
+    doc.report.changes = draftChanges(plan, pace, doc.decisions);
   }
 
   // First visit: write the drafts once the saved campaign has loaded.
@@ -43,6 +41,7 @@
     if (!doc.report.headline) doc.report.headline = draftHeadline(doc.plan, doc.pacing, doc.report);
     if (!doc.report.summary.length) doc.report.summary = draftSummary(doc.plan, doc.pacing, doc.report);
     if (!doc.report.comingUp.length) doc.report.comingUp = draftComingUp(doc.plan, doc.pacing);
+    if (!doc.report.changes.length && doc.decisions.length) doc.report.changes = draftChanges(doc.plan, doc.pacing, doc.decisions);
   });
 </script>
 
@@ -86,7 +85,7 @@
     {/snippet}
 
     {@render listEditor('Summary', doc.report.summary, { label: 'Redraft', run: () => (doc.report.summary = draftSummary(plan, pace, r)) })}
-    {@render listEditor('What we changed this week', doc.report.changes, { label: 'Pull from pacing notes', run: pullChanges })}
+    {@render listEditor('What we changed this week', doc.report.changes, { label: 'Draft from the decision record', run: pullChanges })}
 
     <div class="block">
       <div class="bh"><h3>Decisions needed from the client</h3></div>

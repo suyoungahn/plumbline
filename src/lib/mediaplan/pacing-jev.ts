@@ -69,6 +69,7 @@ export type LineSuggestion = {
   gateProbability: number;
   needsYou: boolean;
   lever: LeverId;
+  distribution: Record<string, number>;
   confidence: number;
   severity: number;
   costUsd: number;
@@ -85,6 +86,7 @@ export function localSuggestions(p: MediaPlan, pace: Pacing): LineSuggestion[] {
       gateProbability: gate,
       needsYou: gate >= GATE_THRESHOLD,
       lever: a.lever.choice as LeverId,
+      distribution: a.lever.probabilities as Record<string, number>,
       confidence: a.lever.confidence as number,
       severity: a.severity.score as number,
       costUsd: 0,

@@ -103,3 +103,27 @@ export type WeeklyReport = {
   comingUp: string[];
   footer: string;
 };
+
+// One entry per suggestion that was ruled on or applied. Every kind of suggestion
+// (a campaign-level lever, a pacing line, a search term) lands in the same record,
+// and the weekly report's "What we changed" is written from it.
+export type DecisionKind = 'campaign' | 'pacing' | 'search_term';
+// 'shadow' = a routine change the rules would have applied, recorded but not applied
+// because the team is running in shadow mode.
+export type Ruling = 'approved' | 'overruled' | 'auto' | 'shadow';
+export type Provenance = 'jev' | 'jev_recorded' | 'stand_in';
+
+export type DecisionEntry = {
+  key: string;
+  date: string;
+  kind: DecisionKind;
+  subject: string;
+  action: string;
+  why: string;
+  gate: number;
+  confidence: number;
+  source: Provenance;
+  ruling: Ruling;
+  ruledBy: 'manager' | 'rules';
+  note?: string;
+};

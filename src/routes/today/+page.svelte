@@ -6,9 +6,10 @@
   import { SURFACES, type SurfaceId } from '$lib/placements';
   import { CLIENTS, MANAGER, type ClientId } from '$lib/portfolio';
   import { campaignById } from '$lib/scenario/campaigns';
-  import { RECORD_IDS, records } from '$lib/mediaplan/store.svelte';
+  import { RECORD_IDS, records, settings } from '$lib/mediaplan/store.svelte';
   import { localSuggestions } from '$lib/mediaplan/pacing-jev';
   import { cad, lineName, paceAll, pct } from '$lib/mediaplan/calc';
+  import { band, campaignKey, pacingKey, RULING_LABEL } from '$lib/mediaplan/decisions';
 
   type Row = {
     campaign: {
@@ -33,7 +34,7 @@
       const rec = records[id];
       const flagged = localSuggestions(rec.plan, rec.pacing)
         .map((s, i) => ({ s, line: rec.plan.lines[i] }))
-        .filter((x) => x.s.needsYou);
+        .filter((x) => x.s.needsYou && !rec.decisions.some((d) => d.key === pacingKey(rec.pacing.dataThrough, x.line.id)));
       return { id, rec, flagged };
     }).filter((x) => x.flagged.length)
   );
@@ -57,6 +58,9 @@
   const eur = (n: number) =>
     n >= 1_000_000 ? `CA$${(n / 1_000_000).toFixed(2)}M` : n >= 1000 ? `CA$${(n / 1000).toFixed(1)}k` : `CA$${n}`;
 
+  const open = $derived(
+    rows.filter((r) => r.proposal.gateOpen && !records[r.campaign.id]?.decisions.some((d) => d.key === campaignKey(records[r.campaign.id].pacing.dataThrough))).length
+  );
   const queue = $derived(
     rows
       .filter((r) => r.proposal.gateOpen)
@@ -81,6 +85,20 @@
     {/if}
   </header>
 
+  {#if !settings.welcomed}
+    <section class="welcome">
+      <h2>Welcome to Plumbline</h2>
+      <ul>
+        <li><strong>What it does.</strong> Every morning it checks every campaign, pacing line and search term against its plan, CPA target and available supply, and brings you only the ones that need a person.</li>
+        <li><strong>What it can't know.</strong> It only sees the data: not a client call, a stock-out or a promotion that isn't in the plan. That is why anything touching budget, brand safety or client policy waits for you.</li>
+        <li><strong>How to read a suggestion.</strong> <em>Clear call</em>: the evidence points one way. <em>Judgment call</em>: likely, check the reason. <em>Unsure</em>: the options are close and are shown side by side. Hover a label for the exact numbers.</li>
+        <li><strong>Shadow mode is on.</strong> Routine changes are recorded as what the rules would do, and nothing is applied automatically until your team switches it off (top right).</li>
+        <li><strong>Where to start.</strong> Open <a href={`${base}/campaigns`}>Campaigns</a>, pick one, and walk its tabs from Plan to Report. Every ruling you make lands on its Decisions tab.</li>
+      </ul>
+      <button class="ok" onclick={() => (settings.welcomed = true)}>Got it</button>
+    </section>
+  {/if}
+
   {#if loading}
     <p class="muted">Evaluating the book…</p>
   {:else if summary}
@@ -88,7 +106,7 @@
     <section class="hero">
       <div class="ratio">
         <div class="big">
-          <strong>{summary.needsHuman}</strong>
+          <strong>{open}</strong>
           <span>need you today</span>
         </div>
         <div class="vs">of {summary.campaigns}</div>
@@ -108,7 +126,7 @@
     <p class="claim">
       Every campaign in this book was evaluated this morning for
       <strong>{decisionCost(summary.decisionCostUsd as number)}</strong>. {summary.handled} of {summary.campaigns} cleared
-      on their own. {MANAGER.name} reads {summary.needsHuman}.
+      on their own. {MANAGER.name} reads {summary.needsHuman}{open < (summary.needsHuman as number) ? `, and has ruled on ${(summary.needsHuman as number) - open}` : ''}.
       <span class="muted">This book used to need {MANAGER.bookUsedToNeed} people.</span>
       {#if summary.source === 'sim'}
         <span class="badge sim">Heuristic stand-in, not Jev</span>
@@ -119,8 +137,11 @@
     <ul class="queue">
       {#each queue as r (r.campaign.id)}
         {@const t = paceAll(records[r.campaign.id].plan, records[r.campaign.id].pacing)}
+        {@const b = band(r.proposal.leverConfidence)}
+        {@const ruled = records[r.campaign.id]?.decisions.find((d) => d.key === campaignKey(records[r.campaign.id].pacing.dataThrough))}
         <li>
-          <a class="card" href={`${base}/campaign/${r.campaign.id}`}>
+          <a class="card" class:done={!!ruled} href={`${base}/campaign/${r.campaign.id}`}>
+            {#if ruled}<span class="ruledtag">{RULING_LABEL[ruled.ruling]} by you: {ruled.action.toLowerCase()}</span>{/if}
             <div class="card-top">
               <div>
                 <span class="client">{CLIENTS[r.campaign.clientId].name}</span>
@@ -147,18 +168,8 @@
             </div>
 
             <div class="jevline">
-              <span class="jl">
-                <code>noul</code> needs a person
-                <strong>{(r.proposal.gateProbability * 100).toFixed(0)}%</strong>
-              </span>
-              <span class="jl">
-                <code>choice</code> confidence
-                <strong>{(r.proposal.leverConfidence * 100).toFixed(0)}%</strong>
-              </span>
-              <span class="jl">
-                <code>score</code> severity
-                <strong>{r.proposal.severity.toFixed(1)}/4</strong>
-              </span>
+              <span class="bandchip" data-b={b.key} title={`${(r.proposal.gateProbability * 100).toFixed(0)}% that this needs a person; ${(r.proposal.leverConfidence * 100).toFixed(0)}% confidence in the action; severity ${r.proposal.severity.toFixed(1)} of 4. ${b.hint}`}>{b.label}</span>
+              <span class="jl">{b.hint}</span>
               <span class="seewhy">see how this was decided →</span>
             </div>
           </a>
@@ -251,6 +262,13 @@
     border-left: 3px solid var(--serious); border-radius: var(--radius);
   }
   .card:hover { background: var(--hover); }
+  .welcome { padding: 1rem 1.2rem; margin-bottom: 1.2rem; border-radius: var(--radius); background: color-mix(in srgb, var(--series-1) 7%, var(--surface-1)); border: 1px solid color-mix(in srgb, var(--series-1) 30%, transparent); }
+  .welcome h2 { font-size: 1rem; margin-bottom: 0.5rem; }
+  .welcome ul { margin: 0 0 0.8rem; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.84rem; color: var(--text-secondary); max-width: 95ch; }
+  .welcome strong { color: var(--text-primary); }
+  .welcome .ok { background: var(--series-1); border-color: var(--series-1); color: #fff; font-weight: 600; }
+  .card.done { opacity: 0.6; border-left-color: var(--series-1); }
+  .ruledtag { display: inline-block; font-size: 0.66rem; font-weight: 700; color: var(--series-1); margin-bottom: 0.3rem; }
   .card.small { border-left-color: var(--warning); }
   .card.small .why { margin-bottom: 0.4rem; }
   .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
@@ -269,8 +287,10 @@
   .dot[data-lever='no_action'] { background: var(--good); }
   .jevline { display: flex; gap: 1rem; align-items: baseline; flex-wrap: wrap; margin-top: 0.6rem; padding-top: 0.55rem; border-top: 1px solid var(--grid); }
   .jl { font-size: 0.73rem; color: var(--text-muted); display: inline-flex; align-items: baseline; gap: 0.3rem; }
-  .jl code { font-size: 0.62rem; font-weight: 700; background: var(--surface-3); padding: 0.05rem 0.28rem; border-radius: 3px; color: var(--text-secondary); }
-  .jl strong { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+  .bandchip { font-size: 0.64rem; font-weight: 700; padding: 0.08rem 0.4rem; border-radius: 20px; cursor: help; }
+  .bandchip[data-b='clear'] { background: color-mix(in srgb, var(--good) 16%, transparent); color: var(--good-text); }
+  .bandchip[data-b='judgment'] { background: color-mix(in srgb, var(--warning) 24%, transparent); color: var(--text-primary); }
+  .bandchip[data-b='unsure'] { background: color-mix(in srgb, var(--serious) 18%, transparent); color: var(--text-primary); }
   .seewhy { margin-left: auto; font-size: 0.72rem; color: var(--series-1); font-weight: 600; }
   .meta { font-size: 0.74rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 

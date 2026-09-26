@@ -1,7 +1,7 @@
 import { CAMPAIGNS } from '$lib/scenario/campaigns';
 import { recordFromCampaign } from './book';
 import { SEED_PACING, SEED_PLAN, SEED_REPORT } from './seed';
-import type { MediaPlan, Pacing, WeeklyReport } from './types';
+import type { DecisionEntry, MediaPlan, Pacing, WeeklyReport } from './types';
 
 // Every campaign is one record: its plan (brief, lines, flowchart, creative), its
 // pacing actuals and its weekly report. The book's 24 live campaigns and the
@@ -10,7 +10,7 @@ import type { MediaPlan, Pacing, WeeklyReport } from './types';
 
 const KEY = 'plumbline.records.v1';
 
-export type CampaignDoc = { plan: MediaPlan; pacing: Pacing; report: WeeklyReport };
+export type CampaignDoc = { plan: MediaPlan; pacing: Pacing; report: WeeklyReport; decisions: DecisionEntry[] };
 
 export const SAMPLE_ID = 'pcexpress-holiday';
 
@@ -22,8 +22,8 @@ export const RECORD_CLIENT: Record<string, string> = Object.fromEntries([
 
 function fresh(): Record<string, CampaignDoc> {
   return {
-    [SAMPLE_ID]: structuredClone({ plan: SEED_PLAN, pacing: SEED_PACING, report: SEED_REPORT }),
-    ...Object.fromEntries(CAMPAIGNS.map((c) => [c.id, recordFromCampaign(c)]))
+    [SAMPLE_ID]: structuredClone({ plan: SEED_PLAN, pacing: SEED_PACING, report: SEED_REPORT, decisions: [] }),
+    ...Object.fromEntries(CAMPAIGNS.map((c) => [c.id, { ...recordFromCampaign(c), decisions: [] }]))
   };
 }
 
@@ -32,6 +32,28 @@ export const RECORD_IDS = Object.keys(RECORD_CLIENT);
 export const records = $state<Record<string, CampaignDoc>>(fresh());
 
 let restored = false;
+
+// Team settings. Shadow mode is on for a new team: routine changes are recorded as
+// what the rules would have done, and nothing is applied until the team turns it off.
+const SETTINGS_KEY = 'plumbline.settings.v1';
+export const settings = $state({ shadow: true, welcomed: false });
+
+export function restoreSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (raw) Object.assign(settings, JSON.parse(raw));
+  } catch {
+    // Storage blocked: defaults stand.
+  }
+}
+
+export function saveSettings() {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  } catch {
+    // Storage blocked: settings last for this session.
+  }
+}
 
 // Pages that fill in drafts wait for this, so a saved campaign is not overwritten.
 export const ready = $state({ value: false });
@@ -48,7 +70,8 @@ export function restoreCampaigns() {
         records[id] = {
           plan: { ...base[id].plan, ...doc.plan },
           pacing: { ...base[id].pacing, ...doc.pacing },
-          report: { ...base[id].report, ...doc.report }
+          report: { ...base[id].report, ...doc.report },
+          decisions: doc.decisions ?? []
         };
       }
     }

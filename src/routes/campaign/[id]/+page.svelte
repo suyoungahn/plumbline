@@ -2,6 +2,8 @@
   import { base } from '$app/paths';
   import { campaignById } from '$lib/scenario/campaigns';
   import { records } from '$lib/mediaplan/store.svelte';
+  import DecisionCell from '$lib/components/DecisionCell.svelte';
+  import { campaignKey, remove, upsert } from '$lib/mediaplan/decisions';
   import { CHANNELS } from '$lib/mediaplan/types';
   import { cad, lineName, paceAll, pct } from '$lib/mediaplan/calc';
   import { page } from '$app/state';
@@ -22,6 +24,26 @@
   const isBook = $derived(!!campaignById(page.params.id!));
   const rec = $derived(records[page.params.id!]);
   const paced = $derived(rec ? paceAll(rec.plan, rec.pacing) : null);
+  const campaignWhy = $derived(
+    paced ? [paced.pacing === null ? '' : `${pct(paced.pacing)} of plan to date`, paced.cpa === null ? '' : `CPA ${cad(paced.cpa, 2)} vs ${cad(rec!.plan.targetCpa, 2)} target`].filter(Boolean).join('; ') : ''
+  );
+
+  function ruleCampaign(ruling: 'approved' | 'overruled') {
+    if (!rec || !p) return;
+    upsert(rec.decisions, {
+      key: campaignKey(rec.pacing.dataThrough),
+      date: rec.pacing.dataThrough,
+      kind: 'campaign',
+      subject: rec.plan.campaign,
+      action: LEVERS[p.lever as LeverId].label,
+      why: campaignWhy,
+      gate: p.gateProbability,
+      confidence: p.leverConfidence,
+      source: p.source === 'replay' ? 'jev_recorded' : p.source === 'sim' ? 'stand_in' : 'jev',
+      ruling,
+      ruledBy: 'manager'
+    });
+  }
 
   $effect(() => {
     const id = page.params.id!;
@@ -274,6 +296,20 @@
         <strong>{LEVERS[p.lever as LeverId].label}</strong>
         {#if p.targetSurface}<span class="on">on {SURFACES[p.targetSurface as SurfaceId].label}</span>{/if}
         <p class="meaning">{LEVERS[p.lever as LeverId].meaning}</p>
+        {#if rec}
+          <DecisionCell
+            entry={rec.decisions.find((d) => d.key === campaignKey(rec.pacing.dataThrough))}
+            needsYou={p.gateOpen}
+            action={LEVERS[p.lever as LeverId].label}
+            confidence={p.leverConfidence}
+            gate={p.gateProbability}
+            why={campaignWhy}
+            alternatives={Object.entries(p.leverDistribution as Record<string, number>).filter(([k]) => k !== p.lever).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([k]) => LEVERS[k as LeverId].label.toLowerCase())}
+            source={p.source === 'replay' ? 'jev_recorded' : p.source === 'sim' ? 'stand_in' : 'jev'}
+            onrule={(ruling) => ruleCampaign(ruling)}
+            onundo={() => remove(rec.decisions, campaignKey(rec.pacing.dataThrough))}
+          />
+        {/if}
       </div>
     {/if}
     </div>

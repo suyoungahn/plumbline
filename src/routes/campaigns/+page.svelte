@@ -96,7 +96,9 @@
       <thead>
         <tr>
           <th>Client</th><th>Campaign</th><th class="r">Day</th><th class="r">Budget</th><th class="r">Spent</th>
-          <th class="r">Pacing</th><th class="r">CPA vs target</th><th>Status</th>
+          <th class="r" title="Spend to date ÷ what the flowchart planned by today. 100% is exactly on plan; the band is 90–110%.">Pacing</th>
+          <th class="r" title="Cost per conversion to date against the campaign's target. Negative is better than target.">CPA vs target</th>
+          <th title="What needs a decision on this campaign, if anything.">Status</th>
         </tr>
       </thead>
       <tbody>

@@ -13,6 +13,7 @@
   const t = $derived(rec ? paceAll(rec.plan, rec.pacing) : null);
   const client = $derived(CLIENTS[RECORD_CLIENT[id] as ClientId]);
   const hasTerms = $derived(SEARCH_TERMS.some((s) => s.campaignId === id));
+  const logged = $derived(rec ? rec.decisions.length : 0);
 
   // One workspace per campaign. Every campaign has the same tabs, in the order the
   // work happens: plan it, flight it, watch it, report on it.
@@ -22,6 +23,7 @@
     { href: '/flowchart', label: 'Flowchart' },
     { href: '/pacing', label: 'Pacing' },
     ...(hasTerms ? [{ href: '/search-terms', label: 'Search terms' }] : []),
+    { href: '/decisions', label: logged ? `Decisions (${logged})` : 'Decisions' },
     { href: '/report', label: 'Report' }
   ]);
   const root = $derived(`${base}/campaign/${id}`);

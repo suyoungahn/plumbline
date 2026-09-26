@@ -143,9 +143,11 @@ function.
 The set of Proposals awaiting a human ruling. The operator's actual job in the
 new model. Not a dashboard: a worklist that empties.
 
-**Ledger**
-The append-only record of every Proposal, its probabilities, the ruling, and who
-or what made it. The Ledger is what makes Report possible without anyone
+**Ledger** (the **Decisions** tab)
+The record of every Proposal, its probabilities, the ruling, and who or what made
+it, kept per campaign: campaign-level levers, pacing lines and search terms alike.
+Routine changes below the "needs a person" bar are recorded as applied automatically,
+or, in **shadow mode**, as what would have been applied. The Ledger is what makes Report possible without anyone
 building a deck, and it is the audit trail a regulated client asks for.
 
 ## Roles
