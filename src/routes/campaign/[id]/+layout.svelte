@@ -15,19 +15,24 @@
   const hasTerms = $derived(SEARCH_TERMS.some((s) => s.campaignId === id));
   const logged = $derived(rec ? rec.decisions.length : 0);
 
-  // One workspace per campaign. Every campaign has the same tabs, in the order the
-  // work happens: plan it, flight it, watch it, report on it.
+  // One workspace per campaign, five tabs in the order the work happens. Plan and
+  // Delivery each hold two views, switched with a segmented control.
   const tabs = $derived([
-    { href: '', label: 'Overview' },
-    { href: '/plan', label: 'Plan' },
-    { href: '/flowchart', label: 'Flowchart' },
-    { href: '/pacing', label: 'Pacing' },
-    ...(hasTerms ? [{ href: '/search-terms', label: 'Search terms' }] : []),
-    { href: '/decisions', label: logged ? `Decisions (${logged})` : 'Decisions' },
-    { href: '/report', label: 'Report' }
+    { href: '', label: 'Overview', views: [] as { href: string; label: string }[] },
+    { href: '/plan', label: 'Plan', views: [{ href: '/plan', label: 'Line items' }, { href: '/flowchart', label: 'Flowchart' }] },
+    {
+      href: '/pacing',
+      label: 'Delivery',
+      views: [{ href: '/pacing', label: 'Pacing' }, ...(hasTerms ? [{ href: '/search-terms', label: 'Search terms' }] : [])]
+    },
+    { href: '/decisions', label: logged ? `History (${logged})` : 'History', views: [] },
+    { href: '/report', label: 'Report', views: [] }
   ]);
   const root = $derived(`${base}/campaign/${id}`);
   const current = $derived(page.url.pathname.replace(/\/$/, ''));
+  const isOn = (tab: { href: string; views: { href: string }[] }) =>
+    tab.views.length ? tab.views.some((v) => current === `${root}${v.href}`) : current === `${root}${tab.href}`;
+  const activeTab = $derived(tabs.find(isOn));
 </script>
 
 {#if rec && t}
@@ -54,11 +59,18 @@
       </dl>
     </div>
     <nav class="tabs" aria-label="Campaign sections">
-      {#each tabs as tab (tab.label)}
-        {@const href = `${root}${tab.href}`}
-        <a {href} class:active={current === href} aria-current={current === href ? 'page' : undefined}>{tab.label}</a>
+      {#each tabs as tab (tab.href)}
+        {@const on = isOn(tab)}
+        <a href={`${root}${tab.href}`} class:active={on} aria-current={on ? 'page' : undefined}>{tab.label}</a>
       {/each}
     </nav>
+    {#if activeTab && activeTab.views.length > 1}
+      <div class="seg" role="tablist" aria-label={`${activeTab.label} views`}>
+        {#each activeTab.views as v (v.href)}
+          <a role="tab" href={`${root}${v.href}`} aria-selected={current === `${root}${v.href}`} class:on={current === `${root}${v.href}`}>{v.label}</a>
+        {/each}
+      </div>
+    {/if}
   </div>
   {@render children()}
 {:else}
@@ -80,5 +92,8 @@
   .tabs { display: flex; gap: 0.2rem; margin-top: 0.9rem; border-bottom: 1px solid var(--border); overflow-x: auto; }
   .tabs a { padding: 0.45rem 0.8rem; font-size: 0.85rem; font-weight: 500; color: var(--text-secondary); text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
   .tabs a:hover { color: var(--text-primary); }
+  .seg { display: inline-flex; gap: 2px; margin-top: 0.9rem; padding: 3px; border-radius: 10px; background: var(--surface-3); }
+  .seg a { padding: 0.3rem 0.9rem; border-radius: 8px; font-size: 0.85rem; color: var(--text-secondary); text-decoration: none; }
+  .seg a.on { background: var(--surface-1); color: var(--text-primary); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
   .tabs a.active { color: var(--text-primary); border-bottom-color: var(--series-1); font-weight: 650; }
 </style>

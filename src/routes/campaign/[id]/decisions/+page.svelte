@@ -26,11 +26,8 @@
 <div class="page">
   <header class="mp-top">
     <div>
-      <h2 class="tab-title">Decisions</h2>
-      <p class="lede">
-        Everything that changed on this campaign and who decided it: your approvals and overrules, and the
-        routine changes applied automatically. The weekly report's "What we changed" is written from this list.
-      </p>
+      <h2 class="tab-title">History</h2>
+      <p class="lede">Every change on this campaign, and who made it.</p>
     </div>
   </header>
 
@@ -49,9 +46,9 @@
         <select bind:value={show}>
           <option value="all">All ({doc.decisions.length})</option>
           <option value="approved">Approved by you ({counts.approved})</option>
-          <option value="overruled">Overruled by you ({counts.overruled})</option>
+          <option value="overruled">Declined by you ({counts.overruled})</option>
           <option value="auto">Applied automatically ({counts.auto})</option>
-          <option value="shadow">Would apply, shadow mode ({counts.shadow})</option>
+          <option value="shadow">Would apply, learning mode ({counts.shadow})</option>
         </select>
       </label>
     </div>

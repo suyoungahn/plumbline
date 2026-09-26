@@ -1,5 +1,7 @@
 import { cad, lineName, pct, signedPct, type PacedLine } from './calc';
-import type { DecisionEntry, Provenance } from './types';
+import { lineRecommendation } from './recommend';
+import type { LineSuggestion } from './pacing-jev';
+import type { DecisionEntry, MediaPlan, Pacing, Provenance, Ruling } from './types';
 
 // How a suggestion is presented to someone new to AI tools: as what to do about it,
 // with the probability behind it one hover away rather than up front.
@@ -18,7 +20,7 @@ export const SOURCE_LABEL: Record<Provenance, string> = {
   stand_in: 'Stand-in rules'
 };
 
-export const RULING_LABEL = { approved: 'Approved', overruled: 'Overruled', auto: 'Applied automatically', shadow: 'Would apply automatically' } as const;
+export const RULING_LABEL = { approved: 'Approved', overruled: 'Declined', auto: 'Applied automatically', shadow: 'Would apply automatically' } as const;
 
 // The one or two facts that drove a pacing suggestion, in the manager's own terms.
 export function pacingWhy(r: PacedLine, target: number): string {
@@ -47,3 +49,53 @@ export function remove(list: DecisionEntry[], key: string) {
 }
 
 export const subjectFor = (r: PacedLine) => lineName(r.line);
+
+// Builders shared by every place a suggestion can be ruled on (the Inbox, the Pacing
+// tab, the campaign Overview), so a ruling means the same thing wherever it is made.
+export function pacingEntry(
+  plan: MediaPlan,
+  pace: Pacing,
+  r: PacedLine,
+  s: LineSuggestion,
+  ruling: Ruling
+): DecisionEntry {
+  return {
+    key: pacingKey(pace.dataThrough, r.line.id),
+    date: pace.dataThrough,
+    kind: 'pacing',
+    lever: s.lever,
+    subject: lineName(r.line),
+    action: lineRecommendation(r, s.lever),
+    why: pacingWhy(r, plan.targetCpa),
+    gate: s.gateProbability,
+    confidence: s.confidence,
+    source: s.source === 'sim' ? 'stand_in' : 'jev',
+    ruling,
+    ruledBy: ruling === 'auto' || ruling === 'shadow' ? 'rules' : 'manager',
+    note: r.actual.note || undefined
+  };
+}
+
+export function campaignEntry(
+  date: string,
+  subject: string,
+  action: string,
+  why: string,
+  p: { gateProbability: number; leverConfidence: number; source: string; lever?: string },
+  ruling: 'approved' | 'overruled' | 'auto'
+): DecisionEntry {
+  return {
+    key: campaignKey(date),
+    date,
+    kind: 'campaign',
+    lever: p.lever,
+    subject,
+    action,
+    why,
+    gate: p.gateProbability,
+    confidence: p.leverConfidence,
+    source: p.source === 'replay' ? 'jev_recorded' : p.source === 'sim' ? 'stand_in' : 'jev',
+    ruling,
+    ruledBy: ruling === 'auto' ? 'rules' : 'manager'
+  };
+}

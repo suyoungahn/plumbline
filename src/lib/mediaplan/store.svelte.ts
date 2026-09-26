@@ -36,12 +36,24 @@ let restored = false;
 // Team settings. Shadow mode is on for a new team: routine changes are recorded as
 // what the rules would have done, and nothing is applied until the team turns it off.
 const SETTINGS_KEY = 'plumbline.settings.v1';
-export const settings = $state({ shadow: true, welcomed: false });
+export const settings = $state({
+  shadow: true,
+  welcomed: false,
+  seenPlan: false,
+  seenReport: false,
+  introSeen: false,
+  // Per action type: 'auto' lets that kind of change apply without a person once
+  // learning mode is off. Everything starts manual.
+  autonomy: {} as Record<string, 'auto' | 'manual'>
+});
 
 export function restoreSettings() {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    if (raw) Object.assign(settings, JSON.parse(raw));
+    if (raw) {
+      const saved = JSON.parse(raw);
+      Object.assign(settings, { ...saved, autonomy: { ...(saved.autonomy ?? {}) } });
+    }
   } catch {
     // Storage blocked: defaults stand.
   }

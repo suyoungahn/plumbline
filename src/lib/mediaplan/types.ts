@@ -117,6 +117,8 @@ export type DecisionEntry = {
   key: string;
   date: string;
   kind: DecisionKind;
+  // The action type (a lever or search-term action id), for the autonomy track record.
+  lever?: string;
   subject: string;
   action: string;
   why: string;

@@ -37,14 +37,11 @@
   <header class="mp-top">
     <div>
       <h2 class="tab-title">Flowchart</h2>
-      <p class="lede">
-        How the budget is spread across the flight. Set a weight and the retail moment for each week;
-        every line is flighted by the same weights unless it is held. Pacing is measured against this.
-      </p>
+      <p class="lede">How the budget spreads across the weeks.</p>
     </div>
     <div class="mp-actions">
       <button onclick={() => spreadEvenly(doc.plan)}>Spread evenly</button>
-      <button class="mp-primary" onclick={exportXlsx} disabled={exporting}>{exporting ? 'Building…' : 'Download media plan (.xlsx)'}</button>
+      <button onclick={exportXlsx} disabled={exporting}>{exporting ? 'Building…' : 'Export to Excel'}</button>
     </div>
   </header>
 

@@ -3,6 +3,9 @@
   import CpaChart from '$lib/components/CpaChart.svelte';
   import { page } from '$app/state';
   import { records, ready } from '$lib/mediaplan/store.svelte';
+  import { onMount } from 'svelte';
+  import { settings as teamSettings } from '$lib/mediaplan/store.svelte';
+  onMount(() => (teamSettings.seenReport = true));
   const doc = $derived(records[page.params.id!]);
   import { cad, cadK, compact, lineName, paceAll, pct, shortDate, signedPct } from '$lib/mediaplan/calc';
   import { CHANNELS } from '$lib/mediaplan/types';
@@ -48,11 +51,8 @@
 <div class="page">
   <header class="mp-top no-print">
     <div>
-      <h2 class="tab-title">Weekly report</h2>
-      <p class="lede">
-        The numbers come straight from Plan and Pacing. The words start as a draft written from those
-        numbers, which you edit before sending; nothing is invented. Print it or save it as a PDF.
-      </p>
+      <h2 class="tab-title">Client report</h2>
+      <p class="lede">Drafted from the numbers and your decisions. Edit, then print or save as PDF.</p>
     </div>
     <div class="mp-actions">
       <button onclick={redraftAll}>Redraft from the numbers</button>

@@ -14,6 +14,7 @@
     alternatives = [],
     source,
     idle = 'Nothing to do',
+    compact = false,
     onrule,
     onundo
   }: {
@@ -26,6 +27,7 @@
     alternatives?: string[];
     source: Provenance;
     idle?: string;
+    compact?: boolean;
     onrule: (ruling: 'approved' | 'overruled') => void;
     onundo: () => void;
   } = $props();
@@ -34,19 +36,21 @@
   const tip = $derived(`${SOURCE_LABEL[source]}: ${Math.round(gate * 100)}% that this needs a person; ${Math.round(confidence * 100)}% confidence in the action. ${b.hint}`);
 </script>
 
-<div class="dc">
+<div class="dc" class:compact>
   {#if entry}
     <span class="ruled" data-r={entry.ruling}>{RULING_LABEL[entry.ruling]}{entry.ruledBy === 'manager' ? ' by you' : ''}</span>
     <span class="act">{entry.action}</span>
     {#if entry.ruledBy === 'manager'}<button class="undo" onclick={onundo}>undo</button>{/if}
   {:else if needsYou}
     <span class="band" data-b={b.key} title={tip}>{b.label}</span>
-    <strong class="act">{action}</strong>
-    {#if why}<span class="why">{why}</span>{/if}
+    {#if !compact}
+      <strong class="act">{action}</strong>
+      {#if why}<span class="why">{why}</span>{/if}
+    {/if}
     {#if b.key === 'unsure' && alternatives.length}<span class="alt">Also close: {alternatives.join(', ')}</span>{/if}
     <span class="btns">
       <button class="ok" onclick={() => onrule('approved')}>Approve</button>
-      <button onclick={() => onrule('overruled')}>Overrule</button>
+      <button onclick={() => onrule('overruled')}>Decline</button>
     </span>
     <span class="src">{SOURCE_LABEL[source]}</span>
   {:else}
@@ -63,6 +67,11 @@
   .act { font-size: 0.8rem; }
   .why, .alt, .src, .idle { color: var(--text-muted); font-size: 0.7rem; }
   .src { font-style: italic; }
+  .dc.compact { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 0.5rem; font-size: 0.85rem; }
+  .dc.compact .btns { margin: 0; order: -1; }
+  .dc.compact .btns button { font-size: 0.9rem; padding: 0.45rem 1rem; border-radius: 999px; }
+  .dc.compact .band { order: 2; }
+  .dc.compact .src { order: 3; }
   .btns { display: flex; gap: 0.3rem; margin-top: 0.15rem; }
   .btns button { font-size: 0.72rem; padding: 0.15rem 0.5rem; }
   .btns .ok { background: var(--series-1); border-color: var(--series-1); color: #fff; font-weight: 600; }

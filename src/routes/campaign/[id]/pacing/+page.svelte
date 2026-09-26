@@ -2,7 +2,9 @@
   import { base } from '$app/paths';
   import { LEVERS, type LeverId } from '$lib/domain';
   import DecisionCell from '$lib/components/DecisionCell.svelte';
-  import { pacingKey, pacingWhy, remove, upsert } from '$lib/mediaplan/decisions';
+  import { lineRecommendation } from '$lib/mediaplan/recommend';
+  import { autoApplies } from '$lib/mediaplan/autonomy';
+  import { pacingEntry, pacingKey, pacingWhy, remove, upsert } from '$lib/mediaplan/decisions';
   import type { DecisionEntry, Ruling } from '$lib/mediaplan/types';
   import { page } from '$app/state';
   import { records, settings } from '$lib/mediaplan/store.svelte';
@@ -16,6 +18,9 @@
   const t = $derived(paceAll(plan, doc.pacing));
   let suggestions = $state<LineSuggestion[]>([]);
   let exporting = $state(false);
+  // Platform numbers arrive on their own; typing is only for correcting one.
+  let editing = $state(false);
+  let more = $state(false);
 
   function ensureActual(id: string) {
     doc.pacing.actuals[id] ??= { spend: 0, yesterday: 0, impressions: 0, conversions: 0, note: '' };
@@ -53,25 +58,8 @@
       .slice(0, 2)
       .map(([k]) => LEVERS[k as LeverId].label.toLowerCase());
 
-  function entryFor(r: PacedLine, s: LineSuggestion, ruling: Ruling): DecisionEntry {
-    return {
-      key: pacingKey(doc.pacing.dataThrough, r.line.id),
-      date: doc.pacing.dataThrough,
-      kind: 'pacing',
-      subject: lineName(r.line),
-      action: LEVERS[s.lever].label,
-      why: pacingWhy(r, plan.targetCpa),
-      gate: s.gateProbability,
-      confidence: s.confidence,
-      source: s.source === 'sim' ? 'stand_in' : 'jev',
-      ruling,
-      ruledBy: ruling === 'auto' || ruling === 'shadow' ? 'rules' : 'manager',
-      note: r.actual.note || undefined
-    };
-  }
-
   function rule(r: PacedLine, s: LineSuggestion, ruling: 'approved' | 'overruled') {
-    upsert(doc.decisions, entryFor(r, s, ruling));
+    upsert(doc.decisions, pacingEntry(plan, doc.pacing, r, s, ruling));
   }
 
   // Routine actions below the "needs a person" bar are applied and recorded as
@@ -82,11 +70,12 @@
       if (!r || !s) return;
       const key = pacingKey(doc.pacing.dataThrough, r.line.id);
       const existing = doc.decisions.find((d) => d.key === key);
-      const routine = !s.needsYou && s.lever !== 'no_action' && r.status !== 'Held';
-      const mode: Ruling = settings.shadow ? 'shadow' : 'auto';
+      const earned = s.needsYou && autoApplies(s.lever, s.confidence, settings);
+      const routine = (!s.needsYou || earned) && s.lever !== 'no_action' && r.status !== 'Held';
+      const mode: Ruling = settings.shadow && !earned ? 'shadow' : 'auto';
       const automatic = existing?.ruling === 'auto' || existing?.ruling === 'shadow';
-      if (routine && (!existing || (automatic && (existing.action !== LEVERS[s.lever].label || existing.ruling !== mode)))) {
-        upsert(doc.decisions, entryFor(r, s, mode));
+      if (routine && (!existing || (automatic && (existing.action !== lineRecommendation(r, s.lever) || existing.ruling !== mode)))) {
+        upsert(doc.decisions, pacingEntry(plan, doc.pacing, r, s, mode));
       } else if (!routine && automatic) {
         remove(doc.decisions, key);
       }
@@ -107,19 +96,17 @@
 <div class="page">
   <header class="mp-top">
     <div>
-      <h2 class="tab-title">Daily pacing</h2>
-      <p class="lede">
-        Enter yesterday's platform numbers each morning. Planned-to-date prorates the flowchart by days
-        elapsed, so every line is judged against where it should be today. Jev reads each line and says
-        which ones need you.
-      </p>
+      <h2 class="tab-title">Pacing</h2>
+      <p class="lede">Spend against plan, line by line. Lines outside the band get a suggestion.</p>
     </div>
     <div class="mp-actions">
-      <button class="mp-primary" onclick={exportXlsx} disabled={exporting}>{exporting ? 'Building…' : 'Download workbook with tracker (.xlsx)'}</button>
+      <button onclick={exportXlsx} disabled={exporting}>{exporting ? 'Building…' : 'Export to Excel'}</button>
     </div>
   </header>
 
   <section class="mp-card">
+    <details class="settings-fold">
+      <summary>Date and pacing band</summary>
     <div class="mp-grid settings">
       <label class="mp-field">Data through<input type="date" bind:value={doc.pacing.dataThrough} /></label>
       <label class="mp-field">Over-pace above (%)
@@ -130,9 +117,8 @@
       </label>
       <div class="mp-field">Target CPA<span class="static">{cad(plan.targetCpa, 2)} <a href={`${base}/campaign/${page.params.id}/plan`}>edit in Plan</a></span></div>
     </div>
+    </details>
     <dl class="tiles">
-      <div><dt>Day</dt><dd>{t.daysElapsed} of {t.flightDays}</dd><small>{t.daysRemaining} days remaining</small></div>
-      <div><dt>Spend to date</dt><dd>{cad(t.spend)}</dd><small>{pct(t.budgetPct, 1)} of {cad(plan.totalBudget)}</small></div>
       <div><dt>Pacing</dt><dd class={t.pacing !== null && (t.pacing > doc.pacing.overPace || t.pacing < doc.pacing.underPace) ? 'mp-warn' : ''}>{t.pacing === null ? '—' : pct(t.pacing)}</dd><small>of {cad(t.planned)} planned to date</small></div>
       <div><dt>{plan.conversionName}s</dt><dd>{t.conversions.toLocaleString('en-CA')}</dd><small>blended CPA {t.cpa === null ? '—' : cad(t.cpa, 2)}</small></div>
       <div><dt>Performance CPA</dt><dd class={t.performanceCpa !== null && t.performanceCpa <= plan.targetCpa ? 'mp-ok' : 'mp-warn'}>{t.performanceCpa === null ? '—' : cad(t.performanceCpa, 2)}</dd><small>target {cad(plan.targetCpa, 2)}</small></div>
@@ -142,15 +128,22 @@
   </section>
 
   <section class="mp-card">
-    <h2>Line pacing <span class="mp-muted legend">blue fields are today's inputs</span></h2>
+    <div class="tbar">
+      <h2>Lines</h2>
+      <span class="mp-muted legend">Updated from each platform this morning (illustrative data)</span>
+      <span class="tools">
+        <button class="mini" onclick={() => (more = !more)}>{more ? 'Fewer columns' : 'More columns'}</button>
+        <button class="mini" class:on={editing} onclick={() => (editing = !editing)}>{editing ? 'Done' : 'Correct a number'}</button>
+      </span>
+    </div>
     <div class="mp-scroll">
       <table class="mp-table pace">
         <thead>
           <tr>
             <th>Line</th><th class="r">Net budget</th><th class="r">Planned to date</th><th class="r">Actual to date</th>
-            <th class="r" title="Spend to date ÷ what the flowchart planned by today. Outside the band above, the line is flagged.">Pacing</th><th>Status</th>{#if hasBooked}<th class="r" title="Spend delivered ÷ spend the retailer or publisher booked. Low fill means the inventory ran out, which bidding harder cannot fix.">Fill</th>{/if}<th class="r">Remaining</th><th class="r">Yesterday</th><th class="r">Daily target</th>
-            <th class="r">Impressions</th><th class="r">{plan.conversionName}s</th><th class="r">CPA</th><th class="r">vs target</th>
-            <th title="What the model suggests for this line today, how sure it is, and why. Approve or overrule; either way it goes on the Decisions tab.">Suggested</th><th>Action / notes</th>
+            <th class="r" title="Spend to date ÷ what the flowchart planned by today. Outside the band above, the line is flagged.">Pacing</th><th>Status</th>{#if hasBooked}<th class="r" title="Spend delivered ÷ spend the retailer or publisher booked. Low fill means the inventory ran out, which bidding harder cannot fix.">Fill</th>{/if}{#if more}<th class="r">Remaining</th><th class="r">Yesterday</th><th class="r">Daily target</th>
+            <th class="r">Impressions</th>{/if}<th class="r">{plan.conversionName}s</th><th class="r">CPA</th><th class="r">vs target</th>
+            <th title="What the model suggests for this line today, how sure it is, and why. Approve or decline; either way it goes on the History tab.">Suggested</th>{#if more || editing}<th>Notes</th>{/if}
           </tr>
         </thead>
         <tbody>
@@ -162,17 +155,19 @@
                 <td class="name">{CHANNELS[r.line.channel].label}<small>{r.line.partner}</small></td>
                 <td class="r num">{cad(r.line.budget)}</td>
                 <td class="r num">{cad(r.planned)}</td>
-                <td><input class="mp-in num input-cell money" type="number" min="0" step="100" bind:value={a.spend} aria-label="Actual spend" /></td>
+                <td class="r num">{#if editing}<input class="mp-in num input-cell money" type="number" min="0" step="100" bind:value={a.spend} aria-label="Actual spend" />{:else}{cad(a.spend)}{/if}</td>
                 <td class="r num">{r.pacing === null ? 'n/a' : pct(r.pacing)}</td>
                 <td><span class="mp-pill" data-s={r.status}>{r.status}</span></td>
                 {#if hasBooked}
                   <td class="r num" class:mp-warn={!!a.booked && a.spend / a.booked < 0.9}>{a.booked ? pct(a.spend / a.booked) : '—'}</td>
                 {/if}
-                <td class="r num">{cad(r.remaining)}</td>
-                <td><input class="mp-in num input-cell small-in" type="number" min="0" step="50" bind:value={a.yesterday} aria-label="Yesterday spend" /></td>
-                <td class="r num">{cad(r.dailyTarget)}</td>
-                <td><input class="mp-in num input-cell money" type="number" min="0" step="1000" bind:value={a.impressions} aria-label="Impressions" /></td>
-                <td><input class="mp-in num input-cell small-in" type="number" min="0" step="10" bind:value={a.conversions} aria-label="Conversions" /></td>
+                {#if more}
+                  <td class="r num">{cad(r.remaining)}</td>
+                  <td class="r num">{#if editing}<input class="mp-in num input-cell small-in" type="number" min="0" step="50" bind:value={a.yesterday} aria-label="Yesterday spend" />{:else}{cad(a.yesterday)}{/if}</td>
+                  <td class="r num">{cad(r.dailyTarget)}</td>
+                  <td class="r num">{#if editing}<input class="mp-in num input-cell money" type="number" min="0" step="1000" bind:value={a.impressions} aria-label="Impressions" />{:else}{a.impressions ? a.impressions.toLocaleString('en-CA') : '—'}{/if}</td>
+                {/if}
+                <td class="r num">{#if editing}<input class="mp-in num input-cell small-in" type="number" min="0" step="10" bind:value={a.conversions} aria-label="Conversions" />{:else}{a.conversions.toLocaleString('en-CA')}{/if}</td>
                 <td class="r num">{r.cpa === null ? '—' : cad(r.cpa, 2)}</td>
                 <td class="r num" class:mp-bad={r.line.role === 'performance' && (r.cpaVsTarget ?? 0) > 0} class:mp-ok={r.line.role === 'performance' && r.cpaVsTarget !== null && r.cpaVsTarget <= 0}>
                   {r.cpaVsTarget === null ? '—' : signedPct(r.cpaVsTarget)}
@@ -182,7 +177,7 @@
                     <DecisionCell
                       entry={doc.decisions.find((d) => d.key === pacingKey(doc.pacing.dataThrough, r.line.id))}
                       needsYou={s.needsYou}
-                      action={LEVERS[s.lever].label}
+                      action={lineRecommendation(r, s.lever)}
                       confidence={s.confidence}
                       gate={s.gateProbability}
                       why={pacingWhy(r, plan.targetCpa)}
@@ -194,7 +189,7 @@
                     />
                   {/if}
                 </td>
-                <td><textarea class="note" rows="1" bind:value={a.note} aria-label="Action notes"></textarea></td>
+                {#if more || editing}<td>{#if editing}<textarea class="note" rows="1" bind:value={a.note} aria-label="Notes"></textarea>{:else}<span class="mp-muted small-note">{a.note}</span>{/if}</td>{/if}
               </tr>
             {/if}
           {/each}
@@ -208,14 +203,16 @@
             <td class="r num">{t.pacing === null ? '—' : pct(t.pacing)}</td>
             <td></td>
             {#if hasBooked}<td></td>{/if}
-            <td class="r num">{cad(t.remaining)}</td>
-            <td class="r num">{cad(t.yesterday)}</td>
-            <td class="r num">{cad(t.dailyTarget)}</td>
-            <td class="r num">{t.impressions.toLocaleString('en-CA')}</td>
+            {#if more}
+              <td class="r num">{cad(t.remaining)}</td>
+              <td class="r num">{cad(t.yesterday)}</td>
+              <td class="r num">{cad(t.dailyTarget)}</td>
+              <td class="r num">{t.impressions.toLocaleString('en-CA')}</td>
+            {/if}
             <td class="r num">{t.conversions.toLocaleString('en-CA')}</td>
             <td class="r num">{t.cpa === null ? '—' : cad(t.cpa, 2)}</td>
             <td class="r num">{t.cpaVsTarget === null ? '—' : signedPct(t.cpaVsTarget)}</td>
-            <td colspan="2"></td>
+            <td></td>{#if more || editing}<td></td>{/if}
           </tr>
         </tfoot>
       </table>
@@ -231,7 +228,9 @@
 </div>
 
 <style>
-  .settings { margin-bottom: 0.9rem; }
+  .settings { margin: 0.6rem 0 0.4rem; }
+  .settings-fold { margin-bottom: 0.8rem; }
+  .settings-fold > summary { cursor: pointer; font-size: 0.85rem; color: var(--series-1); }
   .static { font-size: 0.9rem; text-transform: none; letter-spacing: normal; color: var(--text-primary); padding: 0.32rem 0; }
   .static a { font-size: 0.75rem; margin-left: 0.3rem; }
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.6rem; margin: 0; }
@@ -239,7 +238,13 @@
   .tiles dt { font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
   .tiles dd { margin: 0.1rem 0 0; font-size: 1.2rem; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
   .tiles small { font-size: 0.7rem; color: var(--text-muted); }
-  .legend { font-size: 0.7rem; font-weight: 500; margin-left: 0.4rem; }
+  .legend { font-size: 0.78rem; font-weight: 400; }
+  .tbar { display: flex; align-items: baseline; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+  .tbar h2 { font-size: 1rem; margin: 0; }
+  .tools { margin-left: auto; display: flex; gap: 0.4rem; }
+  .mini { font-size: 0.8rem; padding: 0.3rem 0.8rem; border-radius: 999px; }
+  .mini.on { background: var(--series-1); border-color: var(--series-1); color: #fff; }
+  .small-note { font-size: 0.75rem; }
   .pace .name { min-width: 11rem; }
   .pace .name small { display: block; color: var(--text-muted); font-size: 0.7rem; }
   .pace .money { width: 7.5rem; }

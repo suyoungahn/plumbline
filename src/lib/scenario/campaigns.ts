@@ -52,6 +52,8 @@ export type Campaign = {
   market: Market;
   lines: SurfaceLine[];
   headline: string;
+  // The situation in a few words, for the Inbox card. The headline stays the detail.
+  summary?: string;
 
   measurement?: MeasurementBasis;
 };
@@ -121,6 +123,7 @@ export function metrics(c: Campaign) {
 
 const mccainFries: Campaign = {
   id: 'mccain-freezer-reset',
+  summary: 'Walmart onsite ran out of inventory',
   clientId: 'mccain',
   name: 'Superfries freezer reset',
   objective: 'Drive household penetration on the family-size Superfries range ahead of the freezer reset',
@@ -144,6 +147,7 @@ const mccainFries: Campaign = {
 
 const timsOriginal: Campaign = {
   id: 'timhortons-original-blend',
+  summary: 'Programmatic costs double the target',
   clientId: 'timhortons',
   name: 'Original Blend always-on',
   objective: 'Defend share against private label in ground coffee',
@@ -165,6 +169,7 @@ const timsOriginal: Campaign = {
 
 const mapleLeafGrilling: Campaign = {
   id: 'mapleleaf-grilling',
+  summary: 'On plan everywhere',
   clientId: 'mapleleaf',
   name: 'Schneiders grilling season',
   objective: 'Hold volume on sausages and burgers through the grilling season',
@@ -184,6 +189,7 @@ const mapleLeafGrilling: Campaign = {
 
 const natrelProtein: Campaign = {
   id: 'agropur-natrel-protein',
+  summary: 'In-app creative is wearing out',
   clientId: 'agropur',
   name: 'Natrel protein milk launch',
   objective: 'Drive trial of the new high-protein Natrel milk',
@@ -205,6 +211,7 @@ const natrelProtein: Campaign = {
 
 const scottiesPeak: Campaign = {
   id: 'kruger-scotties-peak',
+  summary: 'Budget runs out 4 days early',
   clientId: 'kruger',
   name: 'Scotties cold and flu peak',
   objective: 'Capture the cold and flu season peak on facial tissue',
@@ -225,6 +232,7 @@ const scottiesPeak: Campaign = {
 
 const oldDutchGameDay: Campaign = {
   id: 'olddutch-game-day',
+  summary: 'Slight cost drift on programmatic',
   clientId: 'olddutch',
   name: 'Old Dutch game day',
   objective: 'Own the game day snacking occasion',

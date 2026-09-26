@@ -58,10 +58,7 @@
   <header class="mp-top">
     <div>
       <h1>Campaigns</h1>
-      <p class="lede">
-        Every campaign in the book, {needCount} of {rows.length} with something to decide. Open a row to plan,
-        flight, pace or report on it; each campaign has the same tabs.
-      </p>
+      <p class="lede">{needCount} of {rows.length} have something to decide.</p>
     </div>
   </header>
 

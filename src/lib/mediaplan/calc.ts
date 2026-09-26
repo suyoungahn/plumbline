@@ -21,7 +21,7 @@ export const dayMonth = (iso: string) => {
 export const cad = (n: number, decimals = 0) =>
   `${n < 0 ? '-' : ''}${CUR}${Math.abs(n).toLocaleString('en-CA', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
 export const cadK = (n: number) =>
-  n >= 1_000_000 ? `${CUR}${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 2)}M` : `${CUR}${(n / 1000).toFixed(1)}K`;
+  n >= 1_000_000 ? `${CUR}${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 2)}M` : `${CUR}${(n / 1000).toFixed(n >= 100_000 || Math.round(n / 100) % 10 === 0 ? 0 : 1)}K`;
 export const compact = (n: number) =>
   n >= 1_000_000 ? `${(n / 1_000_000).toFixed(n >= 10_000_000 ? 1 : 2)}M` : n >= 1000 ? `${(n / 1000).toFixed(0)}K` : String(Math.round(n));
 export const pct = (n: number, decimals = 0) => `${(n * 100).toFixed(decimals)}%`;

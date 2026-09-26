@@ -4,6 +4,7 @@
   import { records } from '$lib/mediaplan/store.svelte';
   import DecisionCell from '$lib/components/DecisionCell.svelte';
   import { campaignKey, remove, upsert } from '$lib/mediaplan/decisions';
+  import { recommendation } from '$lib/mediaplan/recommend';
   import { CHANNELS } from '$lib/mediaplan/types';
   import { cad, lineName, paceAll, pct } from '$lib/mediaplan/calc';
   import { page } from '$app/state';
@@ -34,6 +35,7 @@
       key: campaignKey(rec.pacing.dataThrough),
       date: rec.pacing.dataThrough,
       kind: 'campaign',
+      lever: p.lever,
       subject: rec.plan.campaign,
       action: LEVERS[p.lever as LeverId].label,
       why: campaignWhy,
@@ -187,64 +189,31 @@
 {:else if c}
   <div class="page">
     <div class="main">
-    {#if c.id === 'agropur-natrel-protein'}
-      <div class="acts"><a class="act" href={`${base}/optimize`}>Replay this flight, tick by tick</a></div>
-    {/if}
-
+    <h2 class="status">{c.summary ?? c.headline}</h2>
     <p class="headline">{c.headline}</p>
 
-    <JevPanel
-      steps={jevSteps}
-      outcome={jevOutcome}
-      meta={{ costUsd: p.costUsd, latencyMs: p.latencyMs ?? 0, source: p.source }}
-      raw={{
-        state: { campaign: c.name, day: c.day, flightDays: c.flightDays, targetCpaEur: c.targetCpaEur, metrics: m, lines: c.lines },
-        questions: [
-          { key: 'gate', type: 'noul', instructions: 'Does this campaign require a decision from the campaign manager right now? Judge it against its own objective, CPA target and pacing tolerance, not against a general notion of good performance.' },
-          { key: 'lever', type: 'choice', instructions: 'Which single lever best corrects this campaign against its objective? Retailer onsite, in-app and off-app publisher deals have finite supply, so a low fill rate means the inventory does not exist and bidding harder will not help. Programmatic is unbounded but costs more.', optionCount: Object.keys(p.leverDistribution).length },
-          { key: 'severity', type: 'score', instructions: 'How severe is the gap between current performance and the stated objective?' }
-        ],
-        answers: { gate: p.gateProbability, lever: p.lever, distribution: p.leverDistribution, confidence: p.leverConfidence, severity: p.severity }
-      }}
-    />
-
-    <h2 class="sh">Measurement basis and delivery quality</h2>
-    <div class="quality">
-      <div class="q">
-        <span>Attributed ROAS</span>
-        <strong>{m.roas.toFixed(2)}×</strong>
-        <small>
-          {c.measurement?.attributionWindowDays ?? 14} day window ·
-          {c.measurement?.ntbLookbackDays ?? 365} day new-to-brand lookback ·
-          {c.measurement?.impressionBasis ?? 'viewable'} impressions
-        </small>
+    {#if p.gateOpen}
+      <div class="proposed">
+        <span class="sug">Suggested</span>
+        <strong>{recommendation(c, p.lever as LeverId, p.targetSurface)}</strong>
+        <p class="meaning">{campaignWhy}</p>
+        {#if rec}
+          <DecisionCell
+            compact
+            entry={rec.decisions.find((d) => d.key === campaignKey(rec.pacing.dataThrough))}
+            needsYou={p.gateOpen}
+            action={LEVERS[p.lever as LeverId].label}
+            confidence={p.leverConfidence}
+            gate={p.gateProbability}
+            why={campaignWhy}
+            alternatives={Object.entries(p.leverDistribution as Record<string, number>).filter(([k]) => k !== p.lever).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([k]) => LEVERS[k as LeverId].label.toLowerCase())}
+            source={p.source === 'replay' ? 'jev_recorded' : p.source === 'sim' ? 'stand_in' : 'jev'}
+            onrule={(ruling) => ruleCampaign(ruling)}
+            onundo={() => remove(rec.decisions, campaignKey(rec.pacing.dataThrough))}
+          />
+        {/if}
       </div>
-      <div class="q" data-bad={m.discrepancyBreachesContract}>
-        <span>Max discrepancy</span>
-        <strong>{m.maxDiscrepancy}%</strong>
-        <small>
-          {#if m.discrepancyBreachesContract}
-            Above the 10% IAB and 4A's Standard Terms trigger. This is a contractual reconciliation
-            event, not something to optimise through
-          {:else if m.discrepancyBreachesMrc}
-            Above MRC's 5% materiality bar, below the 10% contractual trigger
-          {:else}
-            Within both the MRC 5% bar and the 10% contractual trigger
-          {/if}
-        </small>
-      </div>
-      <div class="q" data-bad={m.ivtBreachesMrc}>
-        <span>Invalid traffic</span>
-        <strong>{m.maxIvt}%</strong>
-        <small>Sophisticated IVT filtration is mandatory for outcome measurement, not optional</small>
-      </div>
-      <p class="qnote">
-        ROAS is shown with its basis because it is not comparable without one. Ovative and Albertsons
-        found ROAS varies by 63 percent on methodology alone across 573 campaigns, and using served
-        rather than viewable impressions overstates it by 35 percent. CPA is the agency's working
-        target here; attributed sales is what the retail media network actually reports.
-      </p>
-    </div>
+    {/if}
 
     <h2 class="sh">Where the money is going</h2>
     <table class="lines">
@@ -285,38 +254,73 @@
       </tbody>
     </table>
 
-    <p class="supply muted small">
-      Onsite and in-app: {SURFACES.sponsored_display.supply.toLowerCase()} · Off-app: {SURFACES.off_app.supply.toLowerCase()} · Programmatic: {SURFACES.programmatic.supply.toLowerCase()}. That asymmetry is why
-      underfill and overspend need opposite actions, and why bidding harder cannot fix a fill problem.
-    </p>
 
-    {#if p.gateOpen}
-      <div class="proposed">
-        <span class="eyebrow">Proposed</span>
-        <strong>{LEVERS[p.lever as LeverId].label}</strong>
-        {#if p.targetSurface}<span class="on">on {SURFACES[p.targetSurface as SurfaceId].label}</span>{/if}
-        <p class="meaning">{LEVERS[p.lever as LeverId].meaning}</p>
-        {#if rec}
-          <DecisionCell
-            entry={rec.decisions.find((d) => d.key === campaignKey(rec.pacing.dataThrough))}
-            needsYou={p.gateOpen}
-            action={LEVERS[p.lever as LeverId].label}
-            confidence={p.leverConfidence}
-            gate={p.gateProbability}
-            why={campaignWhy}
-            alternatives={Object.entries(p.leverDistribution as Record<string, number>).filter(([k]) => k !== p.lever).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([k]) => LEVERS[k as LeverId].label.toLowerCase())}
-            source={p.source === 'replay' ? 'jev_recorded' : p.source === 'sim' ? 'stand_in' : 'jev'}
-            onrule={(ruling) => ruleCampaign(ruling)}
-            onundo={() => remove(rec.decisions, campaignKey(rec.pacing.dataThrough))}
-          />
-        {/if}
+
+    <details class="more">
+      <summary>How Plumbline decided</summary>
+    <JevPanel
+      steps={jevSteps}
+      outcome={jevOutcome}
+      meta={{ costUsd: p.costUsd, latencyMs: p.latencyMs ?? 0, source: p.source }}
+      raw={{
+        state: { campaign: c.name, day: c.day, flightDays: c.flightDays, targetCpaEur: c.targetCpaEur, metrics: m, lines: c.lines },
+        questions: [
+          { key: 'gate', type: 'noul', instructions: 'Does this campaign require a decision from the campaign manager right now? Judge it against its own objective, CPA target and pacing tolerance, not against a general notion of good performance.' },
+          { key: 'lever', type: 'choice', instructions: 'Which single lever best corrects this campaign against its objective? Retailer onsite, in-app and off-app publisher deals have finite supply, so a low fill rate means the inventory does not exist and bidding harder will not help. Programmatic is unbounded but costs more.', optionCount: Object.keys(p.leverDistribution).length },
+          { key: 'severity', type: 'score', instructions: 'How severe is the gap between current performance and the stated objective?' }
+        ],
+        answers: { gate: p.gateProbability, lever: p.lever, distribution: p.leverDistribution, confidence: p.leverConfidence, severity: p.severity }
+      }}
+    />
+
+    </details>
+
+    <details class="more">
+      <summary>Measurement and delivery quality</summary>
+    <h2 class="sh">Measurement basis and delivery quality</h2>
+    <div class="quality">
+      <div class="q">
+        <span>Attributed ROAS</span>
+        <strong>{m.roas.toFixed(2)}×</strong>
+        <small>
+          {c.measurement?.attributionWindowDays ?? 14} day window ·
+          {c.measurement?.ntbLookbackDays ?? 365} day new-to-brand lookback ·
+          {c.measurement?.impressionBasis ?? 'viewable'} impressions
+        </small>
       </div>
-    {/if}
+      <div class="q" data-bad={m.discrepancyBreachesContract}>
+        <span>Max discrepancy</span>
+        <strong>{m.maxDiscrepancy}%</strong>
+        <small>
+          {#if m.discrepancyBreachesContract}
+            Above the 10% IAB and 4A's Standard Terms trigger. This is a contractual reconciliation
+            event, not something to optimise through
+          {:else if m.discrepancyBreachesMrc}
+            Above MRC's 5% materiality bar, below the 10% contractual trigger
+          {:else}
+            Within both the MRC 5% bar and the 10% contractual trigger
+          {/if}
+        </small>
+      </div>
+      <div class="q" data-bad={m.ivtBreachesMrc}>
+        <span>Invalid traffic</span>
+        <strong>{m.maxIvt}%</strong>
+        <small>Sophisticated IVT filtration is mandatory for outcome measurement, not optional</small>
+      </div>
+      <p class="qnote">
+        ROAS is shown with its basis because it is not comparable without one. Ovative and Albertsons
+        found ROAS varies by 63 percent on methodology alone across 573 campaigns, and using served
+        rather than viewable impressions overstates it by 35 percent. CPA is the agency's working
+        target here; attributed sales is what the retail media network actually reports.
+      </p>
     </div>
 
-    {#if rail.length}
-      <StatRail stats={rail} title="Campaign health" />
+    </details>
+
+    {#if c.id === 'agropur-natrel-protein'}
+      <div class="acts"><a class="act" href={`${base}/optimize`}>Replay this flight, tick by tick</a></div>
     {/if}
+    </div>
   </div>
 {:else if !isBook && rec && paced}
   <div class="page">
@@ -381,12 +385,14 @@
   .q[data-bad='true'] strong { color: var(--critical); }
   .q small { display: block; font-size: 0.7rem; color: var(--text-secondary); margin-top: 0.15rem; max-width: 30ch; }
   .qnote { flex: 1 1 100%; font-size: 0.74rem; color: var(--text-muted); margin: 0.4rem 0 0; max-width: 100ch; }
-  .supply { margin-top: 0.7rem; max-width: 96ch; }
   .muted { color: var(--text-muted); }
-  .small { font-size: 0.75rem; }
 
   .proposed { margin-top: 1.5rem; padding: 0.9rem 1rem; background: var(--surface-1); border: 1px solid var(--border); border-left: 3px solid var(--series-1); border-radius: 0 var(--radius) var(--radius) 0; }
-  .proposed strong { font-size: 1.2rem; letter-spacing: -0.015em; }
-  .on { font-size: 0.85rem; color: var(--series-1); margin-left: 0.4rem; }
+  .proposed strong { font-size: 1.2rem; letter-spacing: -0.015em; display: block; margin: 0.1rem 0 0.2rem; }
+  .sug { font-size: 0.8rem; color: var(--text-muted); }
+  .status { font-size: 1.45rem; font-weight: 650; letter-spacing: -0.02em; margin: 1.2rem 0 0.3rem; }
+  details.more { margin-top: 1.2rem; border-top: 1px solid var(--grid); padding-top: 0.8rem; }
+  details.more > summary { cursor: pointer; font-weight: 600; font-size: 0.95rem; color: var(--text-secondary); }
+  details.more[open] > summary { margin-bottom: 0.8rem; }
   .meaning { font-size: 0.8rem; color: var(--text-secondary); margin: 0.35rem 0 0; max-width: 80ch; }
 </style>

@@ -63,6 +63,7 @@
       key: termKey(r.term.id),
       date: rec.pacing.dataThrough,
       kind: 'search_term',
+      lever: r.decision.action,
       subject: `"${r.term.term}" on ${r.term.retailer}`,
       action: TERM_ACTIONS[r.decision.action].label,
       why: why(r),
@@ -81,11 +82,7 @@
     <div>
       <span class="eyebrow">Retail search · onsite and in-app · last 14 days</span>
       {#if campaignId}<h2 class="tab-title">Search terms</h2>{:else}<h1>Search terms, all campaigns</h1>{/if}
-      <p class="lede">
-        Every search a shopper typed that showed one of our ads. Checking these by hand is one of the
-        most time-consuming jobs in retail media. Here every term goes through the same three typed
-        questions, and only the exceptions reach {MANAGER.name}.
-      </p>
+      <p class="lede">Every search that showed one of our ads. Only the exceptions need you.</p>
     </div>
     <p class="disclaimer">Illustrative scenario. Not real search data.</p>
   </header>
@@ -176,16 +173,15 @@
             </div>
             <div class="jevline">
               <span class="bandchip" data-b={b.key} title={`${pct(r.decision.gateProbability)} that this needs a person; ${pct(r.decision.confidence)} confidence in the action; severity ${r.decision.severity.toFixed(1)} of 4. ${b.hint}`}>{b.label}</span>
-              <span class="jl">{b.hint}</span>
               <span class="jl src">{r.decision.source === 'sim' ? 'Stand-in rules' : 'Jev'}</span>
             </div>
             <div class="btns">
               {#if ruled}
-                <span class="ruled">{ruled === 'approved' ? 'Approved' : 'Overruled'}</span>
+                <span class="ruled">{ruled === 'approved' ? 'Approved' : 'Declined'}</span>
                 <button class="link" onclick={() => remove(records[r.campaign.id].decisions, termKey(r.term.id))}>undo</button>
               {:else}
                 <button class="primary" onclick={() => rule(r, 'approved')}>Approve</button>
-                <button onclick={() => rule(r, 'overruled')}>Overrule</button>
+                <button onclick={() => rule(r, 'overruled')}>Decline</button>
               {/if}
             </div>
           </div>
@@ -226,8 +222,8 @@
       {/each}
     </div>
 
-    <section class="asked">
-      <h2 class="section-head">What Jev is asked about every term</h2>
+    <details class="asked">
+      <summary class="section-head">How each term is judged</summary>
       <ol>
         <li><strong>Does it need a person?</strong> {TERM_QUESTIONS.gate.instructions}</li>
         <li>
@@ -245,7 +241,7 @@
         keywords is a job for a text model. Deciding which ones to keep stays with Jev and the
         campaign manager.
       </p>
-    </section>
+    </details>
   {/if}
 </div>
 
@@ -326,6 +322,7 @@
   .r { text-align: right; }
   .num { font-variant-numeric: tabular-nums; }
 
+  .asked > summary { cursor: pointer; }
   .asked ol { margin: 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.84rem; color: var(--text-secondary); max-width: 90ch; }
   .opts { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.35rem; }
   .opts span { font-size: 0.72rem; padding: 0.1rem 0.4rem; border: 1px solid var(--border); border-radius: 5px; }
