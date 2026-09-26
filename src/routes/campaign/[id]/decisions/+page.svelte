@@ -6,7 +6,13 @@
   import { shortDate } from '$lib/mediaplan/calc';
   import type { DecisionKind, Ruling } from '$lib/mediaplan/types';
 
-  const doc = $derived(records[page.params.id!]);
+  // Keep the last campaign while navigating away, when the id briefly goes missing.
+  let last: (typeof records)[string];
+  const doc = $derived.by(() => {
+    const d = records[page.params.id!];
+    if (d) last = d;
+    return d ?? last;
+  });
   let show = $state<'all' | Ruling>('all');
 
   const KIND: Record<DecisionKind, string> = { campaign: 'Campaign', pacing: 'Pacing line', search_term: 'Search term' };

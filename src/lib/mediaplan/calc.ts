@@ -113,7 +113,7 @@ export function currentWeekIndex(p: MediaPlan, pace: Pacing): number {
   return Math.max(0, Math.min(p.weeks.length - 1, i));
 }
 
-export type PaceStatus = 'Held' | 'Overpacing' | 'Underpacing' | 'On pace';
+export type PaceStatus = 'Held' | 'Not started' | 'Overpacing' | 'Underpacing' | 'On pace';
 
 const EMPTY: LineActual = { spend: 0, yesterday: 0, impressions: 0, conversions: 0, note: '' };
 
@@ -122,8 +122,9 @@ export function paceLine(p: MediaPlan, pace: Pacing, l: PlanLine) {
   const elapsed = weekElapsed(p, pace);
   const planned = weekly(p, l).reduce((s, v, i) => s + v * elapsed[i], 0);
   const pacing = planned > 0 ? a.spend / planned : null;
+  const started = pace.dataThrough >= p.flightStart;
   const status: PaceStatus =
-    planned === 0 ? 'Held' : pacing! > pace.overPace ? 'Overpacing' : pacing! < pace.underPace ? 'Underpacing' : 'On pace';
+    !started ? 'Not started' : planned === 0 ? 'Held' : pacing! > pace.overPace ? 'Overpacing' : pacing! < pace.underPace ? 'Underpacing' : 'On pace';
   const cpa = a.conversions > 0 ? a.spend / a.conversions : null;
   return {
     line: l,

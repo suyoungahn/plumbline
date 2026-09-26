@@ -6,7 +6,7 @@
   import { campaignKey, remove, upsert } from '$lib/mediaplan/decisions';
   import { recommendation } from '$lib/mediaplan/recommend';
   import { CHANNELS } from '$lib/mediaplan/types';
-  import { cad, lineName, paceAll, pct } from '$lib/mediaplan/calc';
+  import { cad, lineName, paceAll, pct, shortDate } from '$lib/mediaplan/calc';
   import { page } from '$app/state';
   import JevPanel from '$lib/components/JevPanel.svelte';
   import StatRail from '$lib/components/StatRail.svelte';
@@ -319,6 +319,11 @@
   </div>
 {:else if !isBook && rec && paced}
   <div class="page">
+    {#if paced.daysElapsed < 1}
+      <h2 class="status">Starts {shortDate(rec.plan.flightStart)}</h2>
+      <p class="headline">{rec.plan.objective}. {cad(rec.plan.totalBudget)} over {paced.flightDays} days, {rec.plan.lines.length} {rec.plan.lines.length === 1 ? 'channel' : 'channels'}.</p>
+      <p class="muted">Next: finish the <a href={`${base}/campaign/${page.params.id}/plan`}>plan</a> and send it for approval.</p>
+    {:else}
     <p class="headline">
       {rec.plan.objective}. Day {paced.daysElapsed} of {paced.flightDays}: {cad(paced.spend)} spent, {paced.pacing === null ? '—' : pct(paced.pacing)} of plan,
       {paced.cpa === null ? 'no conversions yet' : `${cad(paced.cpa, 2)} per ${rec.plan.conversionName} against a ${cad(rec.plan.targetCpa, 2)} target`}.
@@ -332,6 +337,7 @@
       {/each}
     </ul>
     <p class="muted">Suggestions are on <a href={`${base}/campaign/${page.params.id}/pacing`}>Delivery</a>.</p>
+    {/if}
   </div>
 {:else}
   <div class="page"><p>Not found.</p></div>

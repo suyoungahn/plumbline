@@ -6,7 +6,13 @@
   import { onMount } from 'svelte';
   import { settings as teamSettings } from '$lib/mediaplan/store.svelte';
   onMount(() => (teamSettings.seenReport = true));
-  const doc = $derived(records[page.params.id!]);
+  // Keep the last campaign while navigating away, when the id briefly goes missing.
+  let last: (typeof records)[string];
+  const doc = $derived.by(() => {
+    const d = records[page.params.id!];
+    if (d) last = d;
+    return d ?? last;
+  });
   import { cad, cadK, compact, lineName, paceAll, pct, shortDate, signedPct } from '$lib/mediaplan/calc';
   import { CHANNELS } from '$lib/mediaplan/types';
   import { draftChanges, draftComingUp, draftHeadline, draftSummary } from '$lib/mediaplan/report-draft';

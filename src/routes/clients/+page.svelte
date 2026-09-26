@@ -1,98 +1,100 @@
 <script lang="ts">
-  import { money } from '$lib/money';
   import { base } from '$app/paths';
   import { onMount } from 'svelte';
-  import { LEVERS, type LeverId } from '$lib/domain';
-  import { CLIENTS, type ClientId } from '$lib/portfolio';
+  import { clients, campaignIds, records, RECORD_CLIENT } from '$lib/mediaplan/store.svelte';
+  import { cad, paceAll, pct } from '$lib/mediaplan/calc';
 
-  let rows = $state<any[]>([]);
-  let loading = $state(true);
-  let open = $state<ClientId | null>(null);
+  // Every client and its campaigns, including clients onboarded in this browser.
+  let gates = $state<Record<string, boolean>>({});
+  let open = $state<string | null>(null);
 
   onMount(async () => {
-    const j = await (await fetch(`${base}/api/portfolio`)).json();
-    rows = j.rows;
-    loading = false;
+    try {
+      const j = await (await fetch(`${base}/api/portfolio`)).json();
+      gates = Object.fromEntries(j.rows.map((r: any) => [r.campaign.id, r.proposal.gateOpen]));
+    } catch {
+      gates = {};
+    }
   });
 
-  const eur = money;
-  const forClient = (id: ClientId) => rows.filter((r) => r.campaign.clientId === id);
+  const list = $derived(
+    Object.entries(clients).map(([id, c]) => {
+      const mine = campaignIds()
+        .filter((cid) => RECORD_CLIENT[cid] === id)
+        .map((cid) => ({ id: cid, rec: records[cid], t: paceAll(records[cid].plan, records[cid].pacing) }));
+      return { id, c, mine, need: mine.filter((m) => gates[m.id]).length, budget: mine.reduce((s, m) => s + m.rec.plan.totalBudget, 0) };
+    })
+  );
 </script>
 
-<div class="page">
-  <span class="eyebrow">Northfield Media</span>
-  <h1>Clients</h1>
-  <p class="lede">Six advertisers, {rows.length} live campaigns. Open one to see its book.</p>
+<div class="page clients">
+  <header class="top">
+    <h1>Clients</h1>
+    <a class="btn primary" href={`${base}/clients/new`}>New client</a>
+  </header>
 
-  {#if loading}
-    <p class="muted">Loading…</p>
-  {:else}
-    <ul class="list">
-      {#each Object.entries(CLIENTS) as [id, c] (id)}
-        {@const mine = forClient(id as ClientId)}
-        {@const need = mine.filter((r) => r.proposal.gateOpen).length}
-        <li>
-          <button class="row" onclick={() => (open = open === id ? null : (id as ClientId))}>
-            <span class="caret" class:o={open === id}>▸</span>
-            <span class="nm">
-              <strong>{c.name}</strong>
-              <span class="cat">{c.category} · {c.retailers.join(', ')}</span>
-            </span>
-            <span class="count">{mine.length} campaigns</span>
-            <span class="need" data-need={need > 0}>
-              {need > 0 ? `${need} to review` : 'on track'}
-            </span>
-          </button>
+  <ul class="list">
+    {#each list as x (x.id)}
+      <li>
+        <button class="row" onclick={() => (open = open === x.id ? null : x.id)} aria-expanded={open === x.id}>
+          <span class="caret" class:o={open === x.id}>▸</span>
+          <span class="nm">
+            <strong>{x.c.name}</strong>
+            <span class="cat">{x.c.category}{x.c.retailers.length ? ` · ${x.c.retailers.join(', ')}` : ''}</span>
+          </span>
+          <span class="count">{x.mine.length} {x.mine.length === 1 ? 'campaign' : 'campaigns'} · {cad(x.budget)}</span>
+          <span class="need" data-need={x.need > 0}>{x.mine.length === 0 ? 'no campaigns' : x.need > 0 ? `${x.need} to review` : 'on track'}</span>
+        </button>
 
-          {#if open === id}
+        {#if open === x.id}
+          <div class="drawer">
+            {#if x.c.contact?.name}
+              <p class="contact">{x.c.contact.name}{x.c.contact.email ? ` · ${x.c.contact.email}` : ''}</p>
+            {/if}
             <ul class="camps">
-              {#each mine as r (r.campaign.id)}
+              {#each x.mine as m (m.id)}
                 <li>
-                  <a href={`${base}/campaign/${r.campaign.id}`}>
-                    <span class="cn">{r.campaign.name}</span>
-                    <span class="cm">
-                      day {r.campaign.day}/{r.campaign.flightDays} · {eur(r.campaign.metrics.delivered)} of {eur(r.campaign.budgetEur)}
-                      · CPA CA${r.campaign.metrics.cpa.toFixed(2)}
-                    </span>
-                    <span class="cl" data-open={r.proposal.gateOpen}>
-                      {r.proposal.gateOpen ? LEVERS[r.proposal.lever as LeverId].label : 'no action needed'}
-                    </span>
+                  <a href={`${base}/campaign/${m.id}`}>
+                    <span class="cn">{m.rec.plan.campaign}</span>
+                    <span class="cm">{cad(m.rec.plan.totalBudget)} · {m.rec.plan.status}{m.t.pacing !== null ? ` · ${pct(m.t.pacing)} of plan` : ''}</span>
                   </a>
                 </li>
               {/each}
             </ul>
-          {/if}
-        </li>
-      {/each}
-    </ul>
-  {/if}
+            <a class="btn" href={`${base}/campaigns/new?client=${x.id}`}>New campaign</a>
+          </div>
+        {/if}
+      </li>
+    {/each}
+  </ul>
 </div>
 
 <style>
-  .lede { color: var(--text-secondary); margin: 0.4rem 0 1.4rem; font-size: 0.9rem; }
-  .list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
-  .row {
-    width: 100%; display: grid; grid-template-columns: 1rem 1fr auto auto; gap: 0.9rem;
-    align-items: center; text-align: left; padding: 0.7rem 0.9rem;
-    background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius);
-  }
-  .caret { color: var(--text-muted); font-size: 0.7rem; transition: transform 140ms; }
+  .clients { max-width: 900px; }
+  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem; }
+  h1 { font-size: 2rem; font-weight: 700; letter-spacing: -0.025em; }
+  .btn { display: inline-block; font-size: 0.9rem; padding: 0.45rem 1rem; border-radius: 999px; border: 1px solid var(--border); text-decoration: none; color: var(--text-primary); background: var(--surface-1); }
+  .btn.primary { background: var(--series-1); border-color: var(--series-1); color: #fff; font-weight: 600; }
+  .list { list-style: none; padding: 0; margin: 0; background: var(--surface-1); border-radius: 14px; box-shadow: 0 0 0 1px var(--border); }
+  .list > li { border-top: 1px solid var(--grid); }
+  .list > li:first-child { border-top: none; }
+  .row { width: 100%; display: grid; grid-template-columns: 1rem 1fr auto 7rem; gap: 0.8rem; align-items: center; text-align: left; background: none; border: none; border-radius: 0; padding: 0.9rem 1.1rem; }
+  .caret { color: var(--text-muted); transition: transform 0.15s; }
   .caret.o { transform: rotate(90deg); }
-  .nm strong { font-size: 0.95rem; }
-  .cat { display: block; font-size: 0.72rem; color: var(--text-muted); }
-  .count { font-size: 0.78rem; color: var(--text-secondary); }
-  .need { font-size: 0.72rem; font-weight: 600; padding: 0.15rem 0.45rem; border-radius: 5px; background: color-mix(in srgb, var(--good) 16%, transparent); color: var(--good-text); }
-  .need[data-need='true'] { background: color-mix(in srgb, var(--serious) 22%, transparent); color: var(--text-primary); }
-
-  .camps { list-style: none; margin: 0.3rem 0 0.5rem 1.9rem; padding: 0; display: flex; flex-direction: column; gap: 1px; }
-  .camps a {
-    display: grid; grid-template-columns: 14rem 1fr auto; gap: 0.8rem; align-items: baseline;
-    padding: 0.4rem 0.6rem; font-size: 0.8rem; text-decoration: none; color: inherit; border-radius: 5px;
+  .nm { display: flex; flex-direction: column; min-width: 0; }
+  .cat { font-size: 0.8rem; color: var(--text-muted); }
+  .count { font-size: 0.85rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+  .need { font-size: 0.8rem; text-align: right; color: var(--good-text); }
+  .need[data-need='true'] { color: var(--serious); font-weight: 600; }
+  .drawer { padding: 0 1.1rem 1rem 2.9rem; }
+  .contact { font-size: 0.85rem; color: var(--text-secondary); margin: 0 0 0.5rem; }
+  .camps { list-style: none; padding: 0; margin: 0 0 0.8rem; }
+  .camps a { display: flex; justify-content: space-between; gap: 1rem; padding: 0.45rem 0; text-decoration: none; color: inherit; border-top: 1px solid var(--grid); font-size: 0.9rem; }
+  .camps a:hover .cn { text-decoration: underline; }
+  .cm { color: var(--text-muted); font-size: 0.82rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  @media (max-width: 640px) {
+    .row { grid-template-columns: 1rem 1fr auto; }
+    .count { display: none; }
+    .drawer { padding-left: 1.1rem; }
   }
-  .camps a:hover { background: var(--hover); }
-  .cn { font-weight: 550; }
-  .cm { font-size: 0.73rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-  .cl { font-size: 0.72rem; color: var(--good-text); }
-  .cl[data-open='true'] { color: var(--series-1); font-weight: 600; }
-  .muted { color: var(--text-muted); }
 </style>

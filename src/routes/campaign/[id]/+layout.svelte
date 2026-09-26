@@ -1,17 +1,16 @@
 <script lang="ts">
   import { base } from '$app/paths';
   import { page } from '$app/state';
-  import { CLIENTS, type ClientId } from '$lib/portfolio';
   import { SEARCH_TERMS } from '$lib/scenario/search-terms';
-  import { RECORD_CLIENT, records } from '$lib/mediaplan/store.svelte';
-  import { cad, paceAll, pct } from '$lib/mediaplan/calc';
+  import { clients, ready, RECORD_CLIENT, records } from '$lib/mediaplan/store.svelte';
+  import { cad, dayMonth, paceAll, pct } from '$lib/mediaplan/calc';
 
   let { children } = $props();
 
   const id = $derived(page.params.id!);
   const rec = $derived(records[id]);
   const t = $derived(rec ? paceAll(rec.plan, rec.pacing) : null);
-  const client = $derived(CLIENTS[RECORD_CLIENT[id] as ClientId]);
+  const client = $derived(clients[RECORD_CLIENT[id]]);
   const hasTerms = $derived(SEARCH_TERMS.some((s) => s.campaignId === id));
   const logged = $derived(rec ? rec.decisions.length : 0);
 
@@ -35,7 +34,9 @@
   const activeTab = $derived(tabs.find(isOn));
 </script>
 
-{#if rec && t}
+{#if !ready.value}
+  <div class="page"><p class="muted">Loading…</p></div>
+{:else if rec && t}
   <div class="ws-head no-print">
     <nav class="crumbs"><a href={`${base}/campaigns`}>Campaigns</a> <span>/</span> {client?.name}</nav>
     <div class="row">
@@ -44,7 +45,7 @@
         <p class="sub">{client?.name} · {client?.category} · {rec.plan.status}</p>
       </div>
       <dl class="figs">
-        <div><dt>Day</dt><dd>{Math.max(0, Math.min(t.daysElapsed, t.flightDays))} of {t.flightDays}</dd></div>
+        <div><dt>Day</dt><dd>{t.daysElapsed < 1 ? `Starts ${dayMonth(rec.plan.flightStart)}` : `${Math.min(t.daysElapsed, t.flightDays)} of ${t.flightDays}`}</dd></div>
         <div><dt>Spent</dt><dd>{cad(t.spend)}</dd><small>of {cad(rec.plan.totalBudget)}</small></div>
         <div>
           <dt>Pacing</dt>
@@ -78,6 +79,7 @@
 {/if}
 
 <style>
+  .muted { color: var(--text-muted); }
   .ws-head { max-width: 1320px; margin: 0 auto; padding: 1.2rem 1.25rem 0; }
   .crumbs { font-size: 0.76rem; color: var(--text-muted); margin-bottom: 0.4rem; }
   .crumbs a { color: var(--text-secondary); text-decoration: none; }

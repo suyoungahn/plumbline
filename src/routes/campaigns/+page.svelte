@@ -1,10 +1,9 @@
 <script lang="ts">
   import { base } from '$app/paths';
   import { onMount } from 'svelte';
-  import { CLIENTS, type ClientId } from '$lib/portfolio';
   import { LEVERS, type LeverId } from '$lib/domain';
-  import { RECORD_CLIENT, RECORD_IDS, records } from '$lib/mediaplan/store.svelte';
-  import { cad, paceAll, pct } from '$lib/mediaplan/calc';
+  import { RECORD_CLIENT, campaignIds, clients, records } from '$lib/mediaplan/store.svelte';
+  import { cad, dayMonth, paceAll, pct } from '$lib/mediaplan/calc';
   import { localSuggestions } from '$lib/mediaplan/pacing-jev';
 
   // One row per campaign, like the tracker sheet a team already keeps, but every
@@ -25,7 +24,7 @@
   });
 
   const rows = $derived(
-    RECORD_IDS.map((id) => {
+    campaignIds().map((id) => {
       const rec = records[id];
       const t = paceAll(rec.plan, rec.pacing);
       const d = decisions[id];
@@ -33,8 +32,8 @@
       // judged from their pacing lines.
       const flagged = d ? null : localSuggestions(rec.plan, rec.pacing).filter((s) => s.needsYou).length;
       const needs = d ? d.gateOpen : (flagged ?? 0) > 0;
-      const action = d ? (d.gateOpen ? LEVERS[d.lever].label : 'Cleared') : flagged ? `${flagged} pacing ${flagged === 1 ? 'line' : 'lines'} to review` : 'Cleared';
-      return { id, rec, t, clientId: RECORD_CLIENT[id] as ClientId, needs, action };
+      const action = t.daysElapsed < 1 ? rec.plan.status : d ? (d.gateOpen ? LEVERS[d.lever].label : 'Cleared') : flagged ? `${flagged} pacing ${flagged === 1 ? 'line' : 'lines'} to review` : 'Cleared';
+      return { id, rec, t, clientId: RECORD_CLIENT[id], needs, action };
     })
   );
 
@@ -42,10 +41,10 @@
     rows
       .filter((r) => clientFilter === 'all' || r.clientId === clientFilter)
       .filter((r) => statusFilter === 'all' || (statusFilter === 'needs' ? r.needs : !r.needs))
-      .filter((r) => !query || `${r.rec.plan.campaign} ${CLIENTS[r.clientId].name}`.toLowerCase().includes(query.toLowerCase()))
+      .filter((r) => !query || `${r.rec.plan.campaign} ${clients[r.clientId].name}`.toLowerCase().includes(query.toLowerCase()))
       .sort((a, b) => {
         if (sortKey === 'needs') return Number(b.needs) - Number(a.needs) || b.rec.plan.totalBudget - a.rec.plan.totalBudget;
-        if (sortKey === 'client') return CLIENTS[a.clientId].name.localeCompare(CLIENTS[b.clientId].name);
+        if (sortKey === 'client') return clients[a.clientId].name.localeCompare(clients[b.clientId].name);
         if (sortKey === 'pacing') return Math.abs((b.t.pacing ?? 1) - 1) - Math.abs((a.t.pacing ?? 1) - 1);
         if (sortKey === 'cpa') return (b.t.cpaVsTarget ?? -9) - (a.t.cpaVsTarget ?? -9);
         return b.rec.plan.totalBudget - a.rec.plan.totalBudget;
@@ -60,13 +59,14 @@
       <h1>Campaigns</h1>
       <p class="lede">{needCount} of {rows.length} have something to decide.</p>
     </div>
+      <a class="newbtn" href={`${base}/campaigns/new`}>New campaign</a>
   </header>
 
   <div class="filters">
     <label class="mp-field">Client
       <select bind:value={clientFilter}>
         <option value="all">All clients</option>
-        {#each Object.entries(CLIENTS) as [id, c] (id)}<option value={id}>{c.name}</option>{/each}
+        {#each Object.entries(clients) as [id, c] (id)}<option value={id}>{c.name}</option>{/each}
       </select>
     </label>
     <label class="mp-field">Show
@@ -102,9 +102,9 @@
         {#each shown as r (r.id)}
           {@const off = r.t.pacing !== null && (r.t.pacing > r.rec.pacing.overPace || r.t.pacing < r.rec.pacing.underPace)}
           <tr class:needs={r.needs}>
-            <td class="muted">{CLIENTS[r.clientId].name}</td>
+            <td class="muted">{clients[r.clientId].name}</td>
             <td><a href={`${base}/campaign/${r.id}`}>{r.rec.plan.campaign}</a></td>
-            <td class="r num">{Math.min(r.t.daysElapsed, r.t.flightDays)}/{r.t.flightDays}</td>
+            <td class="r num">{r.t.daysElapsed < 1 ? `Starts ${dayMonth(r.rec.plan.flightStart)}` : `${Math.min(r.t.daysElapsed, r.t.flightDays)}/${r.t.flightDays}`}</td>
             <td class="r num">{cad(r.rec.plan.totalBudget)}</td>
             <td class="r num">{cad(r.t.spend)}</td>
             <td class="r num" class:mp-warn={off}>{r.t.pacing === null ? '—' : pct(r.t.pacing)}</td>
@@ -123,6 +123,7 @@
 
 <style>
   .lede { color: var(--text-secondary); max-width: 80ch; margin: 0.35rem 0 0; font-size: 0.9rem; }
+  .newbtn { align-self: center; font-size: 0.9rem; padding: 0.45rem 1rem; border-radius: 999px; background: var(--series-1); color: #fff; font-weight: 600; text-decoration: none; }
   .filters { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.8rem; align-items: flex-end; }
   .filters .mp-field { min-width: 11rem; }
   .filters .grow { flex: 1 1 14rem; }
