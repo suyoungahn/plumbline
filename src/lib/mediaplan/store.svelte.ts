@@ -112,3 +112,11 @@ export function resetCampaign(id: string) {
 export function newLineId() {
   return `l-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 }
+
+// Start the demo over: sample campaigns, no decisions, intro and checklist again.
+export function resetDemo() {
+  Object.assign(records, fresh());
+  Object.assign(settings, { shadow: true, welcomed: false, seenPlan: false, seenReport: false, introSeen: false, autonomy: {} });
+  saveCampaigns();
+  saveSettings();
+}

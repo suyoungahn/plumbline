@@ -27,18 +27,13 @@
   <header class="mp-top">
     <div>
       <h2 class="tab-title">History</h2>
-      <p class="lede">Every change on this campaign, and who made it.</p>
     </div>
   </header>
 
   {#if doc.decisions.length === 0}
     <section class="mp-card empty">
       <h3>No decisions yet</h3>
-      <p>
-        Suggestions appear on <a href={`${base}/campaign/${page.params.id}/pacing`}>Pacing</a>, on
-        <a href={`${base}/campaign/${page.params.id}`}>Overview</a> and, for retail search, on Search terms. Approve or
-        overrule one and it lands here, with the reason it was suggested and how sure the model was.
-      </p>
+      <p>Approve or decline a suggestion on <a href={`${base}/campaign/${page.params.id}`}>Overview</a> or <a href={`${base}/campaign/${page.params.id}/pacing`}>Delivery</a>.</p>
     </section>
   {:else}
     <div class="filters">
@@ -55,7 +50,7 @@
     <div class="mp-scroll mp-card flush">
       <table class="mp-table">
         <thead>
-          <tr><th>Date</th><th>What</th><th>Item</th><th>Action</th><th>Outcome</th><th>Why it was suggested</th><th>Suggested by</th></tr>
+          <tr><th>Date</th><th>What</th><th>Item</th><th>Action</th><th>Outcome</th><th>Reason</th><th>Source</th></tr>
         </thead>
         <tbody>
           {#each list as d (d.key)}
@@ -77,7 +72,6 @@
 </div>
 
 <style>
-  .lede { color: var(--text-secondary); max-width: 80ch; margin: 0.35rem 0 0; font-size: 0.9rem; }
   .empty h3 { margin-bottom: 0.4rem; }
   .empty p { font-size: 0.85rem; color: var(--text-secondary); max-width: 80ch; margin: 0; }
   .filters { display: flex; gap: 0.6rem; margin-bottom: 0.8rem; }

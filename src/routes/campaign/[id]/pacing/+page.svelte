@@ -122,15 +122,14 @@
       <div><dt>Pacing</dt><dd class={t.pacing !== null && (t.pacing > doc.pacing.overPace || t.pacing < doc.pacing.underPace) ? 'mp-warn' : ''}>{t.pacing === null ? '—' : pct(t.pacing)}</dd><small>of {cad(t.planned)} planned to date</small></div>
       <div><dt>{plan.conversionName}s</dt><dd>{t.conversions.toLocaleString('en-CA')}</dd><small>blended CPA {t.cpa === null ? '—' : cad(t.cpa, 2)}</small></div>
       <div><dt>Performance CPA</dt><dd class={t.performanceCpa !== null && t.performanceCpa <= plan.targetCpa ? 'mp-ok' : 'mp-warn'}>{t.performanceCpa === null ? '—' : cad(t.performanceCpa, 2)}</dd><small>target {cad(plan.targetCpa, 2)}</small></div>
-      <div><dt>Need you today</dt><dd class={needsYou ? 'mp-warn' : 'mp-ok'}>{needsYou} of {t.rows.length}</dd>
-        <small>{source === 'sim' ? 'heuristic stand-in, not Jev' : 'Jev'}</small></div>
+      <div><dt>To review</dt><dd class={needsYou ? 'mp-warn' : 'mp-ok'}>{needsYou} of {t.rows.length}</dd></div>
     </dl>
   </section>
 
   <section class="mp-card">
     <div class="tbar">
       <h2>Lines</h2>
-      <span class="mp-muted legend">Updated from each platform this morning (illustrative data)</span>
+      <span class="mp-muted legend">Synced this morning</span>
       <span class="tools">
         <button class="mini" onclick={() => (more = !more)}>{more ? 'Fewer columns' : 'More columns'}</button>
         <button class="mini" class:on={editing} onclick={() => (editing = !editing)}>{editing ? 'Done' : 'Correct a number'}</button>
@@ -183,7 +182,7 @@
                       why={pacingWhy(r, plan.targetCpa)}
                       alternatives={alternatives(s)}
                       source={s.source === 'sim' ? 'stand_in' : 'jev'}
-                      idle={r.status === 'Held' ? 'Held' : 'Nothing to do'}
+                      idle={r.status === 'Held' ? 'Held' : '—'}
                       onrule={(ruling) => rule(r, s, ruling)}
                       onundo={() => remove(doc.decisions, pacingKey(doc.pacing.dataThrough, r.line.id))}
                     />
@@ -217,11 +216,6 @@
         </tfoot>
       </table>
     </div>
-    <p class="mp-note" style="margin: 0.6rem 0 0">
-      Pacing = actual ÷ planned to date, with the band set above. Daily target = this week's flighted
-      spend ÷ its days. Fill = delivered ÷ spend the seller booked, which is how running out of retail or publisher inventory shows up. Awareness lines (CTV, video, audio) are not held to the CPA target. Data through
-      {shortDate(doc.pacing.dataThrough)}.
-    </p>
   </section>
 
   <div class="mp-next"><a class="next" href={`${base}/campaign/${page.params.id}/report`}>Next: write the weekly client report →</a></div>

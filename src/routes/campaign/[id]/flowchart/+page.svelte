@@ -67,10 +67,7 @@
         </div>
       {/each}
     </div>
-    <p class="mp-note" style="margin: 0.6rem 0 0">
-      Weights total <strong class={weightsOk ? 'mp-ok' : 'mp-bad'}>{pct(wsum, 1)}</strong>{weightsOk ? '' : ', and must equal 100%'}.
-      The flight has {plan.weeks.length} weeks; change the dates on the Plan step to add or remove weeks.
-    </p>
+    <p class="mp-note" style="margin: 0.6rem 0 0">Weights total <strong class={weightsOk ? 'mp-ok' : 'mp-bad'}>{pct(wsum, 1)}</strong>.</p>
   </section>
 
   <section class="mp-card">
@@ -121,10 +118,7 @@
         </tfoot>
       </table>
     </div>
-    <p class="mp-note" style="margin: 0.6rem 0 0">
-      Shaded cells are weeks the line is live. Held lines, like the test and learn reserve, stay unflighted
-      until the client approves their release, so the gap in cumulative % is intentional.
-    </p>
+    <p class="mp-note" style="margin: 0.6rem 0 0">Held lines stay off until released.</p>
   </section>
 
   <div class="mp-next"><a class="next" href={`${base}/campaign/${page.params.id}/pacing`}>Next: track pacing against this →</a></div>

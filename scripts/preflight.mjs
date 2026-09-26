@@ -106,8 +106,8 @@ else {
   lg.aggregate.baseline.compared === lg.calls.length ? ok(`rules-engine baseline computed for all ${lg.aggregate.baseline.compared}`) : warn(`baseline only for ${lg.aggregate.baseline.compared} of ${lg.calls.length}`);
   ok(`cost ${lg.aggregate.totalCostUsd}, median ${lg.aggregate.medianLatencyMs}ms, confidence ${lg.aggregate.confidence.min} to ${lg.aggregate.confidence.max}`);
 }
-const jr = await fetch(`${BASE}/jev`);
-jr.ok ? ok('/jev renders') : bad(`/jev returned ${jr.status}`);
+const jr = await fetch(`${BASE}/history`);
+jr.ok ? ok('/history renders') : bad(`/history returned ${jr.status}`);
 
 console.log('\nKey');
 existsSync('.env') ? ok('.env present') : warn('.env missing. Replay still works; live mode will not');

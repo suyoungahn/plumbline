@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { askJev, resolveMode } from './jev';
+import { FIXTURES } from './fixtures';
 import { GATE_THRESHOLD } from '$lib/domain';
 import { TERM_QUESTIONS, type SearchTerm, type TermActionId, type TermDecision } from '$lib/keywords';
 import type { Campaign } from '$lib/scenario/campaigns';
@@ -50,7 +51,7 @@ export async function decideTerm(t: SearchTerm, c: Campaign): Promise<TermDecisi
   // A search-term report is thousands of rows. Only call Jev when asked to explicitly;
   // otherwise replay what was recorded, and fall back to the heuristic for the rest.
   const mode =
-    resolveMode() === 'live' ? 'live' : existsSync(join(FIXTURE_DIR, `${fixture}.json`)) ? 'replay' : 'sim';
+    resolveMode() === 'live' ? 'live' : FIXTURES[fixture] || existsSync(join(FIXTURE_DIR, `${fixture}.json`)) ? 'replay' : 'sim';
 
   const result = await askJev(termState(t, c), TERM_QUESTIONS, { mode, fixture });
   const gate = result.answers.gate as NoulAnswer;

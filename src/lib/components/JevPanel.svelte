@@ -9,7 +9,7 @@
     meta,
     raw,
     delta = [],
-    heading = 'How this decision was reached'
+    heading = 'How it was decided'
   }: {
     steps: JevStep[];
     outcome: JevOutcome;
@@ -27,12 +27,9 @@
   <header>
     <div>
       <h2>{heading}</h2>
-      <p class="sub">
-        Three typed questions over a closed set of options. Nothing here is generated prose.
-      </p>
     </div>
     <span class="prov" data-src={meta.source}>
-      {meta.source === 'sim' ? 'Heuristic stand-in' : meta.source === 'replay' ? 'Recorded Jev' : 'Live Jev'}
+      {meta.source === 'sim' ? 'Rules' : meta.source === 'replay' ? 'Recorded' : 'Live'}
     </span>
   </header>
 
@@ -65,14 +62,14 @@
           </div>
         {/if}
         {#if s.sub}<p class="ssub">{s.sub}</p>{/if}
-        <code>{s.primitive}</code>
+        {#if s.primitive}<code>{s.primitive}</code>{/if}
       </li>
     {/each}
     <li class="step lit outcome" data-tone={outcome.tone}>
       <span class="n">{steps.length + 1}</span>
       <h3>{outcome.label}</h3>
       <p class="ssub">{outcome.why}</p>
-      <code>written to the record either way</code>
+      
     </li>
   </ol>
 
@@ -80,7 +77,7 @@
     <span>{meta.latencyMs || '—'}ms</span>
     <span>{decisionCost(meta.costUsd)}</span>
     {#if meta.model}<span class="mdl">{meta.model}</span>{/if}
-    <button onclick={() => (open = !open)}>{open ? 'Hide' : 'Show'} exactly what Jev was asked</button>
+    <button onclick={() => (open = !open)}>{open ? 'Hide' : 'Show'} inputs</button>
   </footer>
 
   {#if open}
@@ -110,7 +107,6 @@
   .jev { background: var(--surface-1); border: 1px solid var(--border); border-left: 3px solid var(--series-1); border-radius: 0 var(--radius) var(--radius) 0; padding: 1rem 1.15rem; margin: 1rem 0; }
   header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
   h2 { font-size: 0.95rem; }
-  .sub { font-size: 0.76rem; color: var(--text-muted); margin: 0.2rem 0 0; }
   .prov { font-size: 0.64rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.15rem 0.45rem; border-radius: 5px; background: var(--surface-3); color: var(--text-secondary); white-space: nowrap; }
   .prov[data-src='live'] { background: color-mix(in srgb, var(--good) 18%, transparent); color: var(--good-text); }
   .prov[data-src='sim'] { background: color-mix(in srgb, var(--warning) 22%, transparent); color: var(--text-primary); }

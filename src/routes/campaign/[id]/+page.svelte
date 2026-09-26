@@ -133,14 +133,14 @@
       : [
           {
             label: 'What it read',
-            primitive: 'campaign state',
+            primitive: '',
             value: `${c.lines.length} placements`,
             sub: `spend, CPA, fill rate and creative decay per placement`,
             lit: true
           },
           {
             label: 'Does this need a person?',
-            primitive: 'noul · bar at 50%',
+            primitive: '',
             value: `${(p.gateProbability * 100).toFixed(0)}%`,
             bar: { value: p.gateProbability, threshold: 0.5, tone: p.gateOpen ? 'bad' : 'good' },
             sub: p.gateOpen ? 'above the bar, so it was raised' : 'below the bar, nothing was raised',
@@ -148,14 +148,14 @@
           },
           {
             label: 'What should we do?',
-            primitive: `choice · over ${Object.keys(p.leverDistribution).length} permitted levers`,
+            primitive: '',
             value: LEVERS[p.lever as LeverId].label,
             sub: `${(p.leverDistribution[p.lever] * 100).toFixed(0)}% of the weight, ${(p.leverConfidence * 100).toFixed(0)}% confidence`,
             lit: p.gateOpen
           },
           {
             label: 'How bad is it?',
-            primitive: `score · 0 to ${SEVERITY_MAX}`,
+            primitive: '',
             value: p.severity.toFixed(1),
             bar: { value: p.severity / SEVERITY_MAX, tone: p.severity > 2 ? 'bad' : 'good' },
             sub: severityLabel(p.severity),
@@ -163,7 +163,7 @@
           },
           {
             label: 'Can we act alone?',
-            primitive: "confidence vs this lever's earned bar",
+            primitive: '',
             value: threshold >= 1 ? 'review all' : `${(threshold * 100).toFixed(0)}% bar`,
             bar: { value: p.leverConfidence, threshold, tone: p.leverConfidence >= threshold ? 'good' : 'neutral' },
             sub: `confidence ${(p.leverConfidence * 100).toFixed(0)}%`,
@@ -179,7 +179,7 @@
         ? { label: 'Sent to the client', why: 'Every action that would fix this is outside the agency mandate.', tone: 'warn' as const }
         : outcome === 'queued'
           ? { label: `Sent to ${MANAGER.name.split(' ')[0]}`, why: 'Either the lever has not earned autonomy, or confidence fell short of its bar.', tone: 'bad' as const }
-          : { label: 'Nothing raised', why: 'The campaign is inside its tolerances, so no proposal was made.', tone: 'neutral' as const }
+          : { label: 'Nothing raised', why: 'On track.', tone: 'neutral' as const }
   );
 
 </script>
@@ -257,7 +257,7 @@
 
 
     <details class="more">
-      <summary>How Plumbline decided</summary>
+      <summary>How it was decided</summary>
     <JevPanel
       steps={jevSteps}
       outcome={jevOutcome}
@@ -276,7 +276,7 @@
     </details>
 
     <details class="more">
-      <summary>Measurement and delivery quality</summary>
+      <summary>Measurement</summary>
     <h2 class="sh">Measurement basis and delivery quality</h2>
     <div class="quality">
       <div class="q">
@@ -305,14 +305,9 @@
       <div class="q" data-bad={m.ivtBreachesMrc}>
         <span>Invalid traffic</span>
         <strong>{m.maxIvt}%</strong>
-        <small>Sophisticated IVT filtration is mandatory for outcome measurement, not optional</small>
+        <small>Below the 5% MRC bar</small>
       </div>
-      <p class="qnote">
-        ROAS is shown with its basis because it is not comparable without one. Ovative and Albertsons
-        found ROAS varies by 63 percent on methodology alone across 573 campaigns, and using served
-        rather than viewable impressions overstates it by 35 percent. CPA is the agency's working
-        target here; attributed sales is what the retail media network actually reports.
-      </p>
+      <p class="qnote">ROAS depends on method, so it is shown with its basis.</p>
     </div>
 
     </details>
@@ -328,19 +323,15 @@
       {rec.plan.objective}. Day {paced.daysElapsed} of {paced.flightDays}: {cad(paced.spend)} spent, {paced.pacing === null ? '—' : pct(paced.pacing)} of plan,
       {paced.cpa === null ? 'no conversions yet' : `${cad(paced.cpa, 2)} per ${rec.plan.conversionName} against a ${cad(rec.plan.targetCpa, 2)} target`}.
     </p>
-    <h2 class="section-title">Lines outside the pacing band</h2>
+    <h2 class="section-title">Off plan</h2>
     <ul class="offband">
       {#each paced.rows.filter((r) => r.status === 'Overpacing' || r.status === 'Underpacing') as r (r.line.id)}
         <li><span class="mp-pill" data-s={r.status}>{r.status}</span> {lineName(r.line)} · {r.pacing === null ? '—' : pct(r.pacing)} of plan · {CHANNELS[r.line.channel].label}</li>
       {:else}
-        <li>Every line is inside the band.</li>
+        <li>Every line is on plan.</li>
       {/each}
     </ul>
-    <p class="muted">
-      This campaign was planned in Plumbline, so it has no recorded Jev decision yet. Today's suggestions per line are
-      on <a href={`${base}/campaign/${page.params.id}/pacing`}>Pacing</a>, and the client update is on
-      <a href={`${base}/campaign/${page.params.id}/report`}>Report</a>.
-    </p>
+    <p class="muted">Suggestions are on <a href={`${base}/campaign/${page.params.id}/pacing`}>Delivery</a>.</p>
   </div>
 {:else}
   <div class="page"><p>Not found.</p></div>

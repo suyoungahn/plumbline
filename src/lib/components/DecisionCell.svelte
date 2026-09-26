@@ -13,7 +13,7 @@
     why,
     alternatives = [],
     source,
-    idle = 'Nothing to do',
+    idle = '—',
     compact = false,
     onrule,
     onundo

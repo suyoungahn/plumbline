@@ -6,10 +6,10 @@
   // Four screens, one idea each, before the product. Skippable, and replayable from
   // "How it works" in the header.
   const slides = [
-    { title: 'Seven tools, every morning, by hand', body: 'Today a campaign manager copies numbers between sheets, platforms and reports. So each one can only run a handful of accounts.' },
-    { title: 'Plumbline checks everything. You see the exceptions.', body: 'Every campaign, line and search term is checked each morning against its plan, target and supply.' },
-    { title: 'Your job: make the calls', body: 'Each card is one situation and one suggestion. Approve it, decline it, or ask why.' },
-    { title: 'Trust grows one action at a time', body: 'Start in learning mode. As the record proves an action, hand it over. Judgment calls stay with you.' }
+    { title: 'Seven tools. Every morning. By hand.', body: 'Numbers copied between sheets, platforms and decks.' },
+    { title: 'Every campaign, checked daily.', body: 'You see only what needs a decision.' },
+    { title: 'You make the call.', body: 'Approve, decline or open the details.' },
+    { title: 'Hand over routine work.', body: 'Turn on automatic actions as they prove reliable.' }
   ];
   let i = $state(0);
 
@@ -40,20 +40,20 @@
         <div class="funnel">
           <div class="dots">{#each Array(24) as _, k (k)}<span class:hot={k === 3 || k === 11 || k === 19}></span>{/each}</div>
           <div class="arrow">↓</div>
-          <div class="three"><span>3 need you</span><span class="quiet">21 on plan</span></div>
+          <div class="three"><span>3 to review</span><span class="quiet">21 on track</span></div>
         </div>
       {:else if i === 2}
         <div class="card">
           <small>McCain Foods · Superfries freezer reset</small>
           <strong>Walmart onsite ran out of inventory</strong>
           <p>Suggested: <b>Move CA$76K to programmatic</b></p>
-          <div class="btns"><span class="b primary">Approve</span><span class="b">Decline</span><span class="b plain">Why?</span></div>
+          <div class="btns"><span class="b primary">Approve</span><span class="b">Decline</span><span class="b plain">Details</span></div>
         </div>
       {:else}
         <ol class="ladder">
-          <li class="done"><b>Learning mode</b><span>Plumbline suggests, you decide</span></li>
-          <li><b>Routine changes</b><span>Apply on their own</span></li>
-          <li><b>Earned actions</b><span>Hand over, one type at a time</span></li>
+          <li class="done"><b>Learning mode</b><span>You review everything</span></li>
+          <li><b>Routine changes</b><span>Applied automatically</span></li>
+          <li><b>Proven actions</b><span>Turned on one at a time</span></li>
         </ol>
       {/if}
     </div>

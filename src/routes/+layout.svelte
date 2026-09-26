@@ -15,8 +15,8 @@
     { href: '/today', label: 'Inbox', also: ['/keywords'] },
     { href: '/campaigns', label: 'Campaigns', also: ['/campaign', '/optimize', '/client-report'] },
     { href: '/clients', label: 'Clients', also: ['/reporting'] },
-    { href: '/autonomy', label: 'Autonomy', also: [] as string[] },
-    { href: '/jev', label: 'Decision log', also: [] as string[] }
+    { href: '/history', label: 'History', also: [] as string[] },
+    { href: '/settings', label: 'Settings', also: [] as string[] }
   ];
 
   const current = $derived(page.url.pathname);
@@ -56,7 +56,7 @@
       <span class="mark" aria-hidden="true"></span>
       <div>
         <strong>Plumbline</strong>
-        <span class="sub">Northfield Media · Retail Media, Canada</span>
+        <span class="sub">Northfield Media · Sample data</span>
       </div>
     </div>
 

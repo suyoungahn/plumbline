@@ -6,6 +6,7 @@ import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { json } from '@sveltejs/kit';
 import { simulate } from '$lib/heuristic';
+import { FIXTURES } from '$lib/server/fixtures';
 import { GATE_THRESHOLD } from '$lib/domain';
 import type { JevQuestion } from '$lib/jev-types';
 import type { RequestHandler } from './$types';
@@ -13,12 +14,14 @@ import type { RequestHandler } from './$types';
 const DIR = join(process.cwd(), 'fixtures', 'jev');
 
 export const GET: RequestHandler = () => {
-  if (!existsSync(DIR)) return json({ calls: [], aggregate: null });
+  // Bundled recordings, plus any recorded live since the build (when running locally).
+  const onDisk = existsSync(DIR) ? readdirSync(DIR).filter((f) => f.endsWith('.json')) : [];
+  const names = [...new Set([...Object.keys(FIXTURES).map((n) => `${n}.json`), ...onDisk])];
+  if (!names.length) return json({ calls: [], aggregate: null });
 
-  const calls = readdirSync(DIR)
-    .filter((f) => f.endsWith('.json'))
+  const calls = names
     .map((f) => {
-      const raw = JSON.parse(readFileSync(join(DIR, f), 'utf8'));
+      const raw: any = FIXTURES[f.replace(/\.json$/, '')] ?? JSON.parse(readFileSync(join(DIR, f), 'utf8'));
       const envelope = raw.response ? raw : { request: null, response: raw, latencyMs: 0, recordedAt: null };
       const req = envelope.request as { model?: string; state?: unknown; questions?: Record<string, JevQuestion> } | null;
       const res = envelope.response as Record<string, any>;

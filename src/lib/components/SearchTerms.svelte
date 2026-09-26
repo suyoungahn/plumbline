@@ -36,19 +36,18 @@
       .finally(() => (loading = false));
   });
 
-  const possessive = (name: string) => (name.endsWith('s') ? `${name}'` : `${name}'s`);
   const cpa = (t: SearchTerm) => (t.conversions > 0 ? t.spendEur / t.conversions : null);
 
   function why(r: Row): string {
     const lex = LEXICON[r.campaign.clientId]!;
     const lower = r.term.term.toLowerCase();
     if (lex.brandSafety.some((b) => lower.includes(b)))
-      return `On ${possessive(r.campaign.client)} brand-safety list. Stopping it is almost certainly right, but a person confirms and tells the client.`;
+      return 'On the brand-safety list. Confirm and tell the client.';
     if (lex.competitorBrands.some((b) => lower.includes(b)))
-      return 'Names a competitor or a retailer private-label brand. Whether to bid on it is the client\'s call, and some retailers restrict it.';
+      return 'Competitor or store brand. Client decision.';
     if (r.term.conversions === 0)
-      return `${dollars(r.term.spendEur)} spent and nothing sold on a term that looks relevant. Enough money that a person checks before it is cut.`;
-    return 'Material spend sitting right at target CPA. Jev is split between the options, so it asks instead of guessing.';
+      return `${dollars(r.term.spendEur)} spent, no sales.`;
+    return 'High spend at target CPA. Options are close.';
   }
 
   // Rulings live in each campaign's decision record, so they survive a reload and
@@ -84,7 +83,6 @@
       {#if campaignId}<h2 class="tab-title">Search terms</h2>{:else}<h1>Search terms, all campaigns</h1>{/if}
       <p class="lede">Every search that showed one of our ads. Only the exceptions need you.</p>
     </div>
-    <p class="disclaimer">Illustrative scenario. Not real search data.</p>
   </header>
 
   {#if loading}
@@ -94,41 +92,23 @@
       <div class="ratio">
         <div class="big">
           <strong>{summary.needsHuman}</strong>
-          <span>need you</span>
+          <span>to review</span>
         </div>
         <div class="vs">of {summary.terms.toLocaleString()}</div>
         <div class="big quiet">
           <strong>{(summary.autoApplied + summary.leftAlone).toLocaleString()}</strong>
-          <span>handled without you</span>
+          <span>sorted</span>
         </div>
       </div>
       <dl class="figures">
         <div><dt>Spend evaluated</dt><dd>{money(summary.spendEvaluated)}</dd></div>
         <div><dt>Changes applied</dt><dd>{summary.autoApplied}</dd></div>
         <div><dt>Wasted spend stopped</dt><dd class="good">{money(summary.wastedStopped)}</dd></div>
-        <div><dt>Cost to decide</dt><dd>{decisionCost(summary.decisionCostUsd)}{summary.costEstimated ? '*' : ''}</dd></div>
+        <div><dt>Cost to decide</dt><dd>{decisionCost(summary.decisionCostUsd)}</dd></div>
       </dl>
     </section>
 
-    <p class="claim">
-      {summary.terms.toLocaleString()} search terms across {summary.campaigns} {summary.campaigns === 1 ? 'campaign' : 'campaigns'}, including
-      {summary.frenchTerms} French searches from Quebec shoppers, were evaluated for
-      <strong>{decisionCost(summary.decisionCostUsd)}</strong>. {summary.autoApplied} changes went through on
-      their own, {summary.leftAlone} terms were left alone for lack of data, and {MANAGER.name} reads
-      {summary.needsHuman}.
-      {#if summary.source !== 'replay' && summary.source !== 'live'}
-        <span class="badge sim">Heuristic stand-in, not Jev</span>
-      {/if}
-    </p>
-    {#if summary.costEstimated}
-      <p class="muted small">
-        * No search-term decisions have been recorded from Jev yet, so these come from the local
-        heuristic, and the cost is estimated at Jev's per-call price. Run with
-        <code>JEV_MODE=live</code> to record the real ones.
-      </p>
-    {/if}
-
-    <h2 class="section-head">Needs a decision <span class="count">{remaining} left</span></h2>
+    <h2 class="section-head">To review <span class="count">{remaining} left</span></h2>
     <ul class="queue">
       {#each queue as r (r.term.id)}
         {@const c = cpa(r.term)}
@@ -189,7 +169,7 @@
       {/each}
     </ul>
 
-    <h2 class="section-head">Handled without you</h2>
+    <h2 class="section-head">Sorted automatically</h2>
     <div class="groups">
       {#each groups as g (g.action)}
         <details class="group" data-action={g.action}>
@@ -198,7 +178,6 @@
             <span class="gcount">{g.count} terms</span>
             <span class="gspend">{money(g.spendEur)} spend</span>
           </summary>
-          <p class="gmeaning">{TERM_ACTIONS[g.action].meaning}.</p>
           <table>
             <thead><tr><th>Search term</th><th>Advertiser</th><th class="r">Clicks</th><th class="r">Spend</th><th class="r">CPA</th><th class="r">Target</th></tr></thead>
             <tbody>
@@ -216,7 +195,7 @@
             </tbody>
           </table>
           {#if g.count > g.examples.length}
-            <p class="muted small">Top {g.examples.length} by spend. All {g.count} are on the record.</p>
+            <p class="muted small">Top {g.examples.length} by spend.</p>
           {/if}
         </details>
       {/each}
@@ -227,20 +206,13 @@
       <ol>
         <li><strong>Does it need a person?</strong> {TERM_QUESTIONS.gate.instructions}</li>
         <li>
-          <strong>Which action?</strong> Which single action is right for this search term? It can only pick
-          from this list, and cannot invent keywords or write anything:
+          <strong>Which action?</strong> One of:
           <span class="opts">
             {#each Object.values(TERM_ACTIONS) as a (a.label)}<span>{a.label}</span>{/each}
           </span>
         </li>
         <li><strong>How much is at stake?</strong> {TERM_QUESTIONS.severity.instructions}</li>
       </ol>
-      <p class="muted small">
-        Relevance is judged against each client's own category terms, competitor list and
-        brand-safety list, the same way a campaign is judged against its CPA target. Suggesting new
-        keywords is a job for a text model. Deciding which ones to keep stays with Jev and the
-        campaign manager.
-      </p>
     </details>
   {/if}
 </div>
@@ -248,7 +220,6 @@
 <style>
   .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 1.5rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
   .lede { max-width: 78ch; color: var(--text-secondary); font-size: 0.9rem; }
-  .disclaimer { font-size: 0.72rem; color: var(--text-muted); margin: 0.3rem 0 0; }
 
   .hero {
     display: flex; justify-content: space-between; align-items: center; gap: 2rem; flex-wrap: wrap;
@@ -266,8 +237,6 @@
   .figures dd { margin: 0.1rem 0 0; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
   .figures dd.good { color: var(--good-text); }
 
-  .claim { font-size: 0.88rem; color: var(--text-secondary); max-width: 82ch; margin: 1rem 0 0.4rem; }
-  .claim strong { color: var(--text-primary); font-variant-numeric: tabular-nums; }
 
   .section-head { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); margin: 1.5rem 0 0.6rem; }
   .count { text-transform: none; letter-spacing: 0; font-weight: 500; margin-left: 0.4rem; color: var(--series-2); }
@@ -310,7 +279,6 @@
   .group summary { display: grid; grid-template-columns: 1fr auto auto; gap: 1.2rem; align-items: baseline; cursor: pointer; font-size: 0.86rem; }
   .gname { display: inline-flex; align-items: center; gap: 0.45rem; font-weight: 600; }
   .gcount, .gspend { font-variant-numeric: tabular-nums; color: var(--text-secondary); font-size: 0.8rem; }
-  .gmeaning { font-size: 0.78rem; color: var(--text-muted); margin: 0.5rem 0; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--series-1); }
   .dot[data-action='add_negative'] { background: var(--serious); }
   .dot[data-action='promote_to_exact'] { background: var(--good); }
@@ -329,8 +297,6 @@
 
   .muted { color: var(--text-muted); }
   .small { font-size: 0.76rem; max-width: 80ch; }
-  .badge { font-size: 0.64rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 0.14rem 0.4rem; border-radius: 5px; margin-left: 0.3rem; border: 1px solid var(--border); }
-  .badge.sim { background: color-mix(in srgb, var(--warning) 22%, transparent); color: var(--text-primary); }
 
   @media (max-width: 760px) {
     .hero { flex-direction: column; align-items: flex-start; }

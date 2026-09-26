@@ -119,10 +119,6 @@
       </tbody>
     </table>
   </div>
-  <p class="mp-note" style="margin-top: 0.6rem">
-    Pacing is spend against the flowchart to date; the band is 90–110% unless a campaign sets its own. CPA vs target
-    counts every line; each campaign's Report separates performance lines from awareness lines.
-  </p>
 </div>
 
 <style>

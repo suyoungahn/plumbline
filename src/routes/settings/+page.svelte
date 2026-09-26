@@ -1,9 +1,11 @@
 <script lang="ts">
-  import { RECORD_IDS, records, settings } from '$lib/mediaplan/store.svelte';
+  import { base } from '$app/paths';
+  import { goto } from '$app/navigation';
+  import { RECORD_IDS, records, resetDemo, settings } from '$lib/mediaplan/store.svelte';
   import { ACTION_TYPES, MIN_AGREEMENT, MIN_RULINGS, trackRecord } from '$lib/mediaplan/autonomy';
 
-  // Where the team hands routine calls to Plumbline, one kind of action at a time,
-  // once its record shows people agree with it.
+  // Team settings: learning mode, which kinds of change may apply on their own
+  // (each unlocked by its approval record), and demo controls.
   const all = $derived(RECORD_IDS.flatMap((id) => records[id].decisions));
   const groups = ['Campaign and pacing', 'Search terms'] as const;
   const autoCount = $derived(ACTION_TYPES.filter((a) => settings.autonomy[a.id] === 'auto').length);
@@ -11,21 +13,21 @@
 
 <div class="page auto">
   <header>
-    <h1>Autonomy</h1>
-    <p class="sub">Hand over the calls Plumbline has earned. Keep the judgment calls.</p>
+    <h1>Settings</h1>
   </header>
 
   <section class="mode" class:on={settings.shadow}>
     <div>
-      <h2>{settings.shadow ? 'Learning mode is on' : 'Learning mode is off'}</h2>
-      <p>{settings.shadow ? 'Plumbline suggests and records. Nothing changes on any platform.' : `Routine changes apply on their own${autoCount ? `, and so ${autoCount === 1 ? 'does 1 action type' : `do ${autoCount} action types`} set to automatic` : ''}.`}</p>
+      <h2>Learning mode</h2>
+      <p>{settings.shadow ? 'On. Suggestions only; nothing is applied.' : `Off. Routine changes${autoCount ? ` and ${autoCount} automatic ${autoCount === 1 ? 'action' : 'actions'}` : ''} apply without review.`}</p>
     </div>
-    <button class:primary={settings.shadow} onclick={() => (settings.shadow = !settings.shadow)}>{settings.shadow ? 'Turn off' : 'Turn back on'}</button>
+    <button class:primary={settings.shadow} onclick={() => (settings.shadow = !settings.shadow)}>{settings.shadow ? 'Turn off' : 'Turn on'}</button>
   </section>
 
+  <h2 class="gh">Automatic actions</h2>
   {#each groups as g (g)}
     <section class="group">
-      <h2>{g}</h2>
+      <h3>{g}</h3>
       <ul>
         {#each ACTION_TYPES.filter((a) => a.group === g) as a (a.id)}
           {@const t = trackRecord(a.id, all)}
@@ -37,14 +39,14 @@
                 <small>{a.locked}</small>
               {:else}
                 <small>
-                  Approved {t.approved} of {t.ruled}
+                  {t.approved} of {t.ruled} approved
                   <span class="meter" aria-hidden="true"><span style:width={`${Math.round(t.rate * 100)}%`} class:ok={t.eligible}></span></span>
                   {Math.round(t.rate * 100)}%
                 </small>
               {/if}
             </div>
             {#if a.locked}
-              <span class="lock">Always you</span>
+              <span class="lock">Always manual</span>
             {:else}
               <div class="seg" role="radiogroup" aria-label={`${a.label} autonomy`}>
                 <button role="radio" aria-checked={!isAuto} class:on={!isAuto} onclick={() => (settings.autonomy[a.id] = 'manual')}>Manual</button>
@@ -59,16 +61,18 @@
     </section>
   {/each}
 
-  <p class="foot">
-    Automatic unlocks at {MIN_RULINGS} rulings with {Math.round(MIN_AGREEMENT * 100)}% agreement. Unsure calls always come to you.
-    Track records include the last 30 days (illustrative).
-  </p>
+  <p class="foot">Available after {MIN_RULINGS} reviews at {Math.round(MIN_AGREEMENT * 100)}% approval. Low-confidence suggestions always need review.</p>
+
+  <h2 class="gh">Demo</h2>
+  <ul class="demo">
+    <li><span>Intro</span><a class="btn" href={`${base}/welcome`}>Replay</a></li>
+    <li><span>Sample data</span><button onclick={() => { if (confirm('Reset all campaigns, decisions and settings?')) { resetDemo(); goto(`${base}/welcome`); } }}>Reset</button></li>
+  </ul>
 </div>
 
 <style>
   .auto { max-width: 760px; }
   h1 { font-size: 2rem; font-weight: 700; letter-spacing: -0.025em; }
-  .sub { font-size: 1.05rem; color: var(--text-secondary); margin: 0.3rem 0 1.5rem; }
   .mode { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 1.1rem 1.25rem; border-radius: 14px; background: var(--surface-1); box-shadow: 0 0 0 1px var(--border); margin-bottom: 1.5rem; }
   .mode.on { background: color-mix(in srgb, var(--series-7) 8%, var(--surface-1)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--series-7) 30%, transparent); }
   .mode h2 { font-size: 1.05rem; }
@@ -76,7 +80,8 @@
   button { border-radius: 999px; font-size: 0.88rem; padding: 0.45rem 1rem; white-space: nowrap; }
   .primary { background: var(--series-1); border-color: var(--series-1); color: #fff; font-weight: 600; }
   .group { margin-bottom: 1.5rem; }
-  .group h2 { font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 0.5rem; }
+  .gh { font-size: 1.05rem; margin: 0 0 0.7rem; }
+  .group h3 { font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 0.5rem; }
   ul { list-style: none; padding: 0; margin: 0; background: var(--surface-1); border-radius: 14px; box-shadow: 0 0 0 1px var(--border); }
   li { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.85rem 1.1rem; border-top: 1px solid var(--grid); }
   li:first-child { border-top: none; }
@@ -90,5 +95,7 @@
   .seg button { border: none; background: none; padding: 0.3rem 0.9rem; font-size: 0.82rem; color: var(--text-secondary); }
   .seg button.on { background: var(--surface-1); color: var(--text-primary); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); }
   .lock { font-size: 0.82rem; color: var(--text-muted); }
-  .foot { font-size: 0.82rem; color: var(--text-muted); }
+  .foot { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 2rem; }
+  .demo { margin-bottom: 1rem; }
+  .btn { font-size: 0.88rem; padding: 0.4rem 1rem; border-radius: 999px; border: 1px solid var(--border); text-decoration: none; color: var(--text-primary); }
 </style>

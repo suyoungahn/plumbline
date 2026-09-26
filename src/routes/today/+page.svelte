@@ -121,7 +121,7 @@
     <h1>Good morning, {firstName}</h1>
     {#if !loading}
       <p class="sub">
-        {#if openCount}{openCount} {openCount === 1 ? 'thing needs' : 'things need'} you today. Plumbline handled the rest.{:else}Nothing needs you today. All campaigns are on track.{/if}
+        {#if openCount}{openCount} {openCount === 1 ? 'item needs' : 'items need'} review. Everything else is on track.{:else}All on track.{/if}
       </p>
     {/if}
   </header>
@@ -129,7 +129,7 @@
   <GettingStarted />
 
   {#if loading}
-    <p class="muted">Checking every campaign…</p>
+    <p class="muted">Loading…</p>
   {:else}
     <section class="stack" aria-label="Decisions">
       {#each campaignItems.filter((i) => i.ruled?.ruling !== 'auto') as item (item.id)}
@@ -147,7 +147,7 @@
             <div class="row">
               <button class="primary" onclick={() => ruleCampaign(item, 'approved')}>Approve</button>
               <button onclick={() => ruleCampaign(item, 'overruled')}>Decline</button>
-              <button class="plain" aria-expanded={openWhy === item.id} onclick={() => (openWhy = openWhy === item.id ? null : item.id)}>Why?</button>
+              <button class="plain" aria-expanded={openWhy === item.id} onclick={() => (openWhy = openWhy === item.id ? null : item.id)}>Details</button>
               <span class="band" data-b={b.key}>{b.label}</span>
             </div>
           {/if}
@@ -155,7 +155,6 @@
             <div class="why">
               <p>{item.detail}</p>
               <p class="facts">{item.facts}</p>
-              <p class="facts">{b.hint}</p>
               <a href={`${base}/campaign/${item.id}`}>Open campaign</a>
             </div>
           {/if}
@@ -193,28 +192,28 @@
       {#if terms?.needsHuman}
         <article class="item">
           <div class="where">Retail search · {terms.campaigns} campaigns</div>
-          <h2>{terms.needsHuman} search terms need a look</h2>
-          <p class="rec">Competitor names, brand-safety terms and a few unclear big spenders.</p>
+          <h2>{terms.needsHuman} search terms to review</h2>
+          <p class="rec">Competitor, brand-safety and high-spend terms.</p>
           <div class="row"><a class="button primary" href={`${base}/keywords`}>Review terms</a></div>
         </article>
       {/if}
     </section>
 
-    <section class="handled" aria-label="Handled for you">
-      <h2>Handled for you</h2>
+    <section class="handled" aria-label="On track">
+      <h2>On track</h2>
       <ul>
         <li><strong>{handledCampaigns}</strong> campaigns on plan</li>
         {#if terms}<li><strong>{(terms.terms - terms.needsHuman).toLocaleString('en-CA')}</strong> search terms sorted</li>{/if}
-        {#if terms}<li><strong>{terms.autoApplied}</strong> routine changes {settings.shadow ? 'ready to apply' : 'applied'}</li>{/if}
+        {#if terms}<li><strong>{terms.autoApplied}</strong> routine changes {settings.shadow ? 'queued' : 'applied'}</li>{/if}
       </ul>
       {#if autoApplied.length}
         <ul class="autolist">
           {#each autoApplied as a (a.key)}
-            <li><span class="tag">Applied automatically</span> {a.text} <span class="muted">· {a.where}</span> <button class="plain" title="Sets this action type back to manual" onclick={a.undo}>Make manual</button></li>
+            <li><span class="tag">Automatic</span> {a.text} <span class="muted">· {a.where}</span> <button class="plain" title="Sets this action type back to manual" onclick={a.undo}>Make manual</button></li>
           {/each}
         </ul>
       {/if}
-      <p class="cost">Checked this morning for {decisionCost(costUsd)}. <a href={`${base}/campaigns`}>All campaigns</a></p>
+      <p class="cost">Checked today for {decisionCost(costUsd)}. <a href={`${base}/campaigns`}>All campaigns</a></p>
     </section>
   {/if}
 </div>

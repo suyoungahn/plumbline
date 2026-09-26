@@ -186,10 +186,10 @@
     !check || !planState
       ? []
       : [
-          { label: 'What it read', primitive: `${Object.keys(planState).length} state fields`, value: `${retail.length} retail and publisher lines`, sub: `${cad(draft.budgetEur)} of the plan draws on finite or priced supply`, lit: true },
-          { label: 'Is this deliverable?', primitive: 'noul · bar at 50%', value: pct(check.deliverableProbability), bar: { value: check.deliverableProbability, threshold: 0.5, tone: check.deliverable ? 'good' : 'bad' }, sub: check.deliverable ? 'clears the bar' : `${cad(planState.undeliverable_eur)} has nowhere to go`, lit: true },
-          { label: 'What would fix it?', primitive: `choice · over ${Object.keys(check.distribution).length} options`, value: planLeverLabel(check.recommendation), sub: `${pct(check.confidence)} confidence`, lit: true },
-          { label: 'How much risk?', primitive: 'score · 0 to 4', value: check.riskScore.toFixed(1), bar: { value: check.riskScore / 4, tone: check.riskScore > 2 ? 'bad' : 'good' }, lit: true }
+          { label: 'What it read', primitive: '', value: `${retail.length} retail and publisher lines`, sub: `${cad(draft.budgetEur)} of the plan draws on finite or priced supply`, lit: true },
+          { label: 'Is this deliverable?', primitive: '', value: pct(check.deliverableProbability), bar: { value: check.deliverableProbability, threshold: 0.5, tone: check.deliverable ? 'good' : 'bad' }, sub: check.deliverable ? 'clears the bar' : `${cad(planState.undeliverable_eur)} has nowhere to go`, lit: true },
+          { label: 'What would fix it?', primitive: '', value: planLeverLabel(check.recommendation), sub: `${pct(check.confidence)} confidence`, lit: true },
+          { label: 'How much risk?', primitive: '', value: check.riskScore.toFixed(1), bar: { value: check.riskScore / 4, tone: check.riskScore > 2 ? 'bad' : 'good' }, lit: true }
         ]
   );
   const jevOutcome = $derived(
@@ -244,10 +244,7 @@
       <label class="mp-field">Flight end<input type="date" bind:value={doc.plan.flightEnd} onchange={onFlightChange} /></label>
       <label class="mp-field">Total budget (CAD)<input type="number" step="5000" min="0" bind:value={doc.plan.totalBudget} /></label>
     </div>
-    <p class="mp-note" style="margin: 0.7rem 0 0">
-      {flightDays(plan)} days, {weekCount(plan)} flowchart weeks. Primary KPI: cost per new {plan.conversionName}
-      (target {cad(plan.targetCpa, 2)}). {approvals.reason}. Canada, including Quebec, requires creative in English and French.
-    </p>
+    <p class="mp-note" style="margin: 0.7rem 0 0">{flightDays(plan)} days · {weekCount(plan)} weeks · {approvals.reason}.</p>
   </details>
 
   <section class="mp-card" data-tone={budgetOk ? undefined : 'alert'}>
@@ -373,13 +370,10 @@
 
   <details class="mp-card fold" data-tone={coverage.ready ? 'ok' : 'alert'} open={!coverage.ready}>
     <summary><h2>Creative and language</h2><span class="fold-sum">{coverage.ready ? 'English and French ready for every surface' : `Missing ${coverage.gaps.map((g) => g.language).join(' and ')} creative`}</span></summary>
-    <p class="mp-note">
-      Every retail and publisher surface needs an eligible asset in English and French. This is a gate,
-      not a warning: the plan cannot be submitted without it.
-    </p>
+    <p class="mp-note">English and French creative is required for every surface.</p>
     <div class="drop">
       <input bind:this={fileInput} type="file" multiple accept="image/*,video/*,.json" onchange={onFiles} />
-      <span>Add creative. Format is read from the image size; files ending in _fr are tagged French.</span>
+      <span>Add creative. Files ending in _fr are tagged French.</span>
     </div>
     <ul class="creatives">
       {#each doc.plan.creatives as c, i (c.id)}
@@ -404,7 +398,7 @@
           <span class="gap">Missing <strong>{g.language}</strong> creative for {g.surfaces.map((s) => SURFACES[s].label).join(', ')}.</span>
         {/each}
         {#if coverage.gaps.some((g) => g.language === 'fr-CA')}
-          <span class="legal">French creative is a legal requirement for reaching Quebec under the Charter of the French Language, so these lines cannot run there as planned.</span>
+          <span class="legal">Required in Quebec (Charter of the French Language).</span>
         {/if}
       {/if}
     </p>

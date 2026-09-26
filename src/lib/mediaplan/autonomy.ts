@@ -16,13 +16,13 @@ export const ACTION_TYPES: ActionType[] = [
     label: LEVERS[id].label,
     group: 'Campaign and pacing' as const
   })),
-  { id: 'escalate_to_client', label: LEVERS.escalate_to_client.label, group: 'Campaign and pacing', locked: 'Budget and objectives are the client’s call. Always a person.' },
+  { id: 'escalate_to_client', label: LEVERS.escalate_to_client.label, group: 'Campaign and pacing', locked: 'Always reviewed. Client decision.' },
   ...(['add_negative', 'promote_to_exact', 'raise_bid', 'lower_bid'] as TermActionId[]).map((id) => ({
     id,
     label: TERM_ACTIONS[id].label,
     group: 'Search terms' as const
   })),
-  { id: 'search_escalate', label: 'Competitor and brand-safety terms', group: 'Search terms', locked: 'Client policy. Always a person.' }
+  { id: 'search_escalate', label: 'Competitor and brand-safety terms', group: 'Search terms', locked: 'Always reviewed. Client policy.' }
 ];
 
 // The team's last 30 days before this demo, so the track record has something in it.

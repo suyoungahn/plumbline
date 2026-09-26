@@ -9,15 +9,15 @@ import type { DecisionEntry, MediaPlan, Pacing, Provenance, Ruling } from './typ
 export type Band = { key: 'clear' | 'judgment' | 'unsure'; label: string; hint: string };
 
 export function band(confidence: number): Band {
-  if (confidence >= 0.7) return { key: 'clear', label: 'Clear call', hint: 'The evidence points one way. Approve unless you know something the data does not.' };
-  if (confidence >= 0.5) return { key: 'judgment', label: 'Judgment call', hint: 'The leading option is likely but not certain. Check the reason before approving.' };
-  return { key: 'unsure', label: 'Unsure', hint: 'The options are close. Compare them; the pick below is only slightly ahead.' };
+  if (confidence >= 0.7) return { key: 'clear', label: 'High confidence', hint: 'Strong evidence.' };
+  if (confidence >= 0.5) return { key: 'judgment', label: 'Medium confidence', hint: 'Check the details.' };
+  return { key: 'unsure', label: 'Low confidence', hint: 'Options are close.' };
 }
 
 export const SOURCE_LABEL: Record<Provenance, string> = {
   jev: 'Jev',
-  jev_recorded: 'Jev (recorded)',
-  stand_in: 'Stand-in rules'
+  jev_recorded: 'Jev',
+  stand_in: 'Rules'
 };
 
 export const RULING_LABEL = { approved: 'Approved', overruled: 'Declined', auto: 'Applied automatically', shadow: 'Would apply automatically' } as const;
