@@ -1,0 +1,171 @@
+{
+  "recordedAt": "2026-09-26T02:06:26.853Z",
+  "latencyMs": 100,
+  "request": {
+    "model": "typesafe/jev-1.13",
+    "state": {
+      "objective": "Drive trial of the reformulated high-protein Oikos range ahead of the spring reset",
+      "objective_type": "trial",
+      "budget_eur": 520000,
+      "flight_days": 28,
+      "target_cpa_eur": 13,
+      "allocated_eur": 520000,
+      "unallocated_eur": 0,
+      "undeliverable_eur": 162444,
+      "undeliverable_pct": 0.312,
+      "expected_blended_cpa_eur": 10.26,
+      "expected_cpa_vs_target_pct": -21.1,
+      "placements": [
+        {
+          "retailer": "Walmart",
+          "surface": "sponsored_display",
+          "requested_eur": 260000,
+          "available_eur": 167813,
+          "requested_over_available": 1.55,
+          "shortfall_eur": 92187,
+          "typical_cpa_eur": 8.4,
+          "inventory_bounded": true
+        },
+        {
+          "retailer": "Kroger",
+          "surface": "sponsored_display",
+          "requested_eur": 120000,
+          "available_eur": 101407,
+          "requested_over_available": 1.18,
+          "shortfall_eur": 18593,
+          "typical_cpa_eur": 9.8,
+          "inventory_bounded": true
+        },
+        {
+          "retailer": "Loblaw",
+          "surface": "in_app",
+          "requested_eur": 80000,
+          "available_eur": 28336,
+          "requested_over_available": 2.82,
+          "shortfall_eur": 51664,
+          "typical_cpa_eur": 12.1,
+          "inventory_bounded": true
+        },
+        {
+          "retailer": "Open web (DV360, TTD)",
+          "surface": "offsite",
+          "requested_eur": 60000,
+          "available_eur": 18666667,
+          "requested_over_available": 0,
+          "shortfall_eur": 0,
+          "typical_cpa_eur": 16.8,
+          "inventory_bounded": false
+        }
+      ],
+      "creative_count": 3,
+      "surfaces_requested": [
+        "sponsored_display",
+        "in_app",
+        "offsite"
+      ],
+      "market": "CA",
+      "required_languages": [
+        "en",
+        "fr-CA"
+      ],
+      "creative_language_gaps": [
+        {
+          "language": "fr-CA",
+          "surfaces": [
+            "sponsored_display",
+            "in_app",
+            "offsite"
+          ]
+        }
+      ],
+      "creatives_not_in_a_required_language": [],
+      "creative_ready": false,
+      "approvals": {
+        "internal": true,
+        "client": true,
+        "reason": "Over 150,000 EUR requires trading director and client sign-off"
+      },
+      "budget_change_permitted": false,
+      "objective_change_permitted": false
+    },
+    "questions": {
+      "gate": {
+        "type": "noul",
+        "instructions": "Is this media plan deliverable as specified? It is NOT deliverable if the plan asks any inventory-bounded placement for materially more budget than is actually available over the flight, or if any required creative language is missing for a requested surface. Judge deliverability, not whether the plan is a good idea."
+      },
+      "lever": {
+        "type": "choice",
+        "instructions": "Which single change would best fix this plan before it goes to approval? Read requested_over_available per placement. A value above 1 on an inventory-bounded surface means the plan asks for budget that does not exist, and no amount of bidding will spend it. Choose approve_as_is only when undeliverable_eur is zero and creative_ready is true. Prefer a change inside the agency mandate over escalating. Escalate only when the fix requires changing total budget, the objective or the CPA target, which belong to the advertiser.",
+        "criteria": {
+          "approve_as_is": "The plan is deliverable and priced correctly. Send it for approval unchanged",
+          "rebalance_to_offsite": "Move the undeliverable onsite allocation to offsite inventory, accepting a higher cost per outcome to keep the budget working",
+          "extend_flight": "Lengthen the flight so the same onsite budget has more weeks of inventory to spend against",
+          "add_retailer": "Add another retailer network to widen the onsite pool rather than over-allocating one retailer",
+          "reduce_budget": "Reduce the total budget to what the requested placements can actually deliver, and return the remainder",
+          "relax_cpa_target": "Raise the CPA target so cheaper-to-reach inventory qualifies",
+          "escalate_to_client": "The plan cannot be fixed inside the agency mandate because it needs a change to budget, objective or target that belongs to the advertiser"
+        }
+      },
+      "severity": {
+        "type": "score",
+        "instructions": "How much delivery risk does this plan carry as written, judged against its budget and flight?",
+        "criteria": [
+          "On plan. No deviation worth an operator looking at it",
+          "Minor drift, within tolerance, likely self correcting",
+          "Material drift. Needs attention this week",
+          "Serious. The objective is at risk without action today",
+          "Critical. Budget is actively being wasted right now"
+        ]
+      }
+    }
+  },
+  "response": {
+    "model": "typesafe/jev-1.13-20260917",
+    "answers": {
+      "gate": {
+        "type": "noul",
+        "noul": 0.03
+      },
+      "lever": {
+        "type": "choice",
+        "choice": "rebalance_to_offsite",
+        "probabilities": {
+          "escalate_to_client": 0.11,
+          "extend_flight": 0,
+          "approve_as_is": 0,
+          "rebalance_to_offsite": 0.78,
+          "reduce_budget": 0.1,
+          "relax_cpa_target": 0,
+          "add_retailer": 0.01
+        },
+        "confidence": 0.73
+      },
+      "severity": {
+        "type": "score",
+        "score": 3.04,
+        "legend": {
+          "0": "On plan. No deviation worth an operator looking at it",
+          "1": "Minor drift, within tolerance, likely self correcting",
+          "2": "Material drift. Needs attention this week",
+          "3": "Serious. The objective is at risk without action today",
+          "4": "Critical. Budget is actively being wasted right now"
+        },
+        "probabilities": {
+          "0": 0,
+          "1": 0,
+          "2": 0.07,
+          "3": 0.81,
+          "4": 0.12
+        },
+        "confidence": 0.84
+      }
+    },
+    "usage": {
+      "input_tokens": 1513,
+      "output_tokens": 122,
+      "cost": 0.000063546
+    },
+    "id": "gen-dec-1790388386-2iLg7mLDr6ZTArjvtQiN",
+    "provider": "TypeSafe"
+  }
+}

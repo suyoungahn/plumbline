@@ -1,0 +1,194 @@
+{
+  "recordedAt": "2026-09-26T02:06:26.700Z",
+  "latencyMs": 124,
+  "request": {
+    "model": "typesafe/jev-1.13",
+    "state": {
+      "objective": "Drive trial of the high-protein Oikos 4 pack in Canada ahead of the spring reset",
+      "target_cpa_eur": 14,
+      "pacing_tolerance": [
+        0.9,
+        1.15
+      ],
+      "brand_safety": [
+        "No adjacency to weight loss or diet content",
+        "No user generated content placements",
+        "Canada only. English and French creative required for Quebec"
+      ],
+      "delivery_commitments": [
+        "Continuous presence for all 30 days, no dark days",
+        "No reduction below 80 percent of planned weekly weight without client approval"
+      ],
+      "day": 24,
+      "flight_days": 30,
+      "days_remaining": 6,
+      "budget_eur": 150000,
+      "spend_to_date_eur": 118000,
+      "even_pace_spend_eur": 120000,
+      "remaining_budget_eur": 32000,
+      "burn_rate_eur_per_day": 6250,
+      "projected_exhaustion_day": 29,
+      "dark_days_if_unchanged": 1,
+      "pacing_index": 0.983,
+      "pacing_within_tolerance": true,
+      "cpa_eur": 15.31,
+      "cpa_vs_target_pct": 9.4,
+      "ctr": 0.0051,
+      "conversions": 7708,
+      "budget_change_permitted": false,
+      "objective_change_permitted": false,
+      "throttling_would_breach_commitment": true,
+      "line_items_above_target_cpa": 1,
+      "efficient_line_items_with_headroom": 4,
+      "line_items_losing_ctr": 0,
+      "line_items_overbidding": 1,
+      "line_items": [
+        {
+          "id": "dv-grocery",
+          "platform": "DV360",
+          "audience": "IAB Shoppers > Grocery & Food",
+          "placement": "Open web display",
+          "share_of_spend": 0.3,
+          "cpa_eur": 13.6,
+          "cpa_vs_target_pct": -2.9,
+          "ctr": 0.0036,
+          "ctr_change_pct_since_last_tick": 2.9,
+          "headroom": 0.6,
+          "bid_vs_cpa_justified": 1
+        },
+        {
+          "id": "ttd-retarget",
+          "platform": "The Trade Desk",
+          "audience": "Walmart: cart abandoners 30d",
+          "placement": "Display + native",
+          "share_of_spend": 0.23,
+          "cpa_eur": 12.9,
+          "cpa_vs_target_pct": -7.9,
+          "ctr": 0.0082,
+          "ctr_change_pct_since_last_tick": 1.2,
+          "headroom": 0.35,
+          "bid_vs_cpa_justified": 1
+        },
+        {
+          "id": "ttd-lookalike",
+          "platform": "The Trade Desk",
+          "audience": "Walmart lookalike: abandoner seed, 2 percent",
+          "placement": "Display + native",
+          "share_of_spend": 0.15,
+          "cpa_eur": 13.4,
+          "cpa_vs_target_pct": -4.3,
+          "ctr": 0.0064,
+          "ctr_change_pct_since_last_tick": 1.6,
+          "headroom": 0.4,
+          "bid_vs_cpa_justified": 1
+        },
+        {
+          "id": "rm-dairy",
+          "platform": "Retail Media",
+          "audience": "Kroger: dairy category browsers",
+          "placement": "Sponsored display",
+          "share_of_spend": 0.07,
+          "cpa_eur": 13.2,
+          "cpa_vs_target_pct": -5.7,
+          "ctr": 0.006,
+          "ctr_change_pct_since_last_tick": 1.7,
+          "headroom": 0.28,
+          "bid_vs_cpa_justified": 1
+        },
+        {
+          "id": "dv-prospect",
+          "platform": "DV360",
+          "audience": "IAB Interest > Nutrition",
+          "placement": "Open web display",
+          "share_of_spend": 0.25,
+          "cpa_eur": 28,
+          "cpa_vs_target_pct": 100,
+          "ctr": 0.0023,
+          "ctr_change_pct_since_last_tick": 4.5,
+          "headroom": 0.55,
+          "bid_vs_cpa_justified": 1.24,
+          "note": "Bid is 24 percent above the level this line item CPA justifies. At 25 percent of spend it is the only line item above target and is the sole driver of the blended CPA drift"
+        }
+      ]
+    },
+    "questions": {
+      "gate": {
+        "type": "noul",
+        "instructions": "Does this campaign require operator intervention right now? Consider it against its stated objective, its CPA target and its pacing tolerance, not against a general notion of good performance."
+      },
+      "lever": {
+        "type": "choice",
+        "instructions": "Which single lever best corrects this campaign against its objective? Shifting budget only helps if a cheaper line item still has headroom to absorb it. A line item with headroom at or near 0 is exhausted and cannot take more spend. Expanding audience adds reachable supply but it also increases burn rate. It is the lever when the binding constraint is supply. It is the wrong lever when the binding constraint is remaining budget, because spending the remainder faster makes that worse. Swapping creative is the lever when a line item has lost click through rate since the last tick at flat frequency. Adjusting bid is the lever when bid_vs_cpa_justified is away from 1. Escalating to the client is a LAST RESORT and must not be chosen while any other permitted lever could still materially improve the outcome. Choose it only when line_items_above_target_cpa is 0, line_items_losing_ctr is 0, line_items_overbidding is 0 and efficient_line_items_with_headroom is 0, so that no efficiency lever has anything left to act on, AND the budget still will not cover the flight. Fixing efficiency also reduces waste, so prefer an efficiency lever whenever one is available. Choosing no action is correct when pacing is within tolerance, CPA is at or under target, nothing has lost click through rate, and nothing is out of headroom.",
+        "criteria": {
+          "shift_budget": "Move budget between line items that are already live",
+          "adjust_bid": "Raise or lower bids on existing line items",
+          "pause_placement": "Stop delivery on an underperforming placement or line item",
+          "swap_creative": "Replace the creative currently serving",
+          "expand_audience": "Add or broaden an audience segment to increase reachable supply",
+          "escalate_to_client": "The correcting action changes total budget or campaign objective, which is the client decision and not the agency mandate",
+          "no_action": "The campaign is within tolerance and should be left alone"
+        }
+      },
+      "severity": {
+        "type": "score",
+        "instructions": "How severe is the gap between current performance and the stated objective? Judge it against the CPA target and the pacing tolerance, not against a general notion of good performance.",
+        "criteria": [
+          "On plan. No deviation worth an operator looking at it",
+          "Minor drift, within tolerance, likely self correcting",
+          "Material drift. Needs attention this week",
+          "Serious. The objective is at risk without action today",
+          "Critical. Budget is actively being wasted right now"
+        ]
+      }
+    }
+  },
+  "response": {
+    "model": "typesafe/jev-1.13-20260917",
+    "answers": {
+      "gate": {
+        "type": "noul",
+        "noul": 0.55
+      },
+      "lever": {
+        "type": "choice",
+        "choice": "adjust_bid",
+        "probabilities": {
+          "swap_creative": 0,
+          "pause_placement": 0,
+          "shift_budget": 0.04,
+          "escalate_to_client": 0,
+          "adjust_bid": 0.96,
+          "no_action": 0,
+          "expand_audience": 0
+        },
+        "confidence": 0.94
+      },
+      "severity": {
+        "type": "score",
+        "score": 2.01,
+        "legend": {
+          "0": "On plan. No deviation worth an operator looking at it",
+          "1": "Minor drift, within tolerance, likely self correcting",
+          "2": "Material drift. Needs attention this week",
+          "3": "Serious. The objective is at risk without action today",
+          "4": "Critical. Budget is actively being wasted right now"
+        },
+        "probabilities": {
+          "0": 0,
+          "1": 0.18,
+          "2": 0.65,
+          "3": 0.15,
+          "4": 0.02
+        },
+        "confidence": 0.69
+      }
+    },
+    "usage": {
+      "input_tokens": 2039,
+      "output_tokens": 113,
+      "cost": 0.000085638
+    },
+    "id": "gen-dec-1790388386-IZNfdvfpB0bks1VYsoqY",
+    "provider": "TypeSafe"
+  }
+}

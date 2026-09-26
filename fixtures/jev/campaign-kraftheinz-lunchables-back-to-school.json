@@ -1,0 +1,182 @@
+{
+  "recordedAt": "2026-09-26T02:06:11.583Z",
+  "latencyMs": 611,
+  "request": {
+    "model": "typesafe/jev-1.13",
+    "state": {
+      "objective": "Back to school occasion",
+      "target_cpa_eur": 11.5,
+      "budget_eur": 124000,
+      "flight_days": 30,
+      "day": 14,
+      "days_remaining": 16,
+      "allocated_eur": 57805,
+      "delivered_eur": 56594,
+      "underfill_eur": 1211,
+      "underfill_pct": 0.021,
+      "blended_cpa_eur": 10.45,
+      "cpa_vs_target_pct": -9.1,
+      "pacing_index": 0.978,
+      "pacing_within_tolerance": true,
+      "projected_exhaustion_day": 31,
+      "dark_days_if_unchanged": 0,
+      "budget_change_permitted": false,
+      "objective_change_permitted": false,
+      "spend_at_risk_eur": 134,
+      "spend_at_risk_pct": 0.002,
+      "lines_losing_ctr": 0,
+      "lines_above_target_cpa": 1,
+      "lines_underfilling": 0,
+      "lines_overbidding": 0,
+      "offsite_cpa_eur": 11.62,
+      "cheapest_line_cpa_eur": 9.66,
+      "attributed_sales_eur": 249019,
+      "roas": 4.4,
+      "measurement_basis": {
+        "attributionWindowDays": 14,
+        "ntbLookbackDays": 365,
+        "impressionBasis": "viewable"
+      },
+      "max_discrepancy_pct": 3.1,
+      "discrepancy_breaches_contract": false,
+      "max_ivt_pct": 1.4,
+      "lines": [
+        {
+          "surface": "sponsored_display",
+          "surface_supply": "Finite. Bounded by retailer traffic and shelf placements",
+          "audience": "Category browsers",
+          "allocated_eur": 25987,
+          "delivered_eur": 25467,
+          "fill_rate": 0.98,
+          "cpa_eur": 9.66,
+          "cpa_vs_target_pct": -16,
+          "ctr": 0.006,
+          "bid_vs_cpa_justified": 1,
+          "ctr_change_pct": 0,
+          "frequency": 3.4,
+          "frequency_change_pct": 0,
+          "attributed_sales_eur": 121271,
+          "discrepancy_pct": 3.1,
+          "ivt_pct": 1.4
+        },
+        {
+          "surface": "in_app",
+          "surface_supply": "Finite. Bounded by app sessions",
+          "audience": "Category browsers",
+          "allocated_eur": 18670,
+          "delivered_eur": 18110,
+          "fill_rate": 0.97,
+          "cpa_eur": 10.93,
+          "cpa_vs_target_pct": -5,
+          "ctr": 0.006,
+          "bid_vs_cpa_justified": 1,
+          "ctr_change_pct": 0,
+          "frequency": 3.4,
+          "frequency_change_pct": 0,
+          "attributed_sales_eur": 76218,
+          "discrepancy_pct": 3.1,
+          "ivt_pct": 1.4
+        },
+        {
+          "surface": "offsite",
+          "surface_supply": "Effectively unbounded",
+          "audience": "Retailer audience extension",
+          "allocated_eur": 13148,
+          "delivered_eur": 13017,
+          "fill_rate": 0.99,
+          "cpa_eur": 11.62,
+          "cpa_vs_target_pct": 1,
+          "ctr": 0.006,
+          "bid_vs_cpa_justified": 1,
+          "ctr_change_pct": 0,
+          "frequency": 3.4,
+          "frequency_change_pct": 0,
+          "attributed_sales_eur": 51530,
+          "discrepancy_pct": 3.1,
+          "ivt_pct": 1.4
+        }
+      ]
+    },
+    "questions": {
+      "gate": {
+        "type": "noul",
+        "instructions": "Does this campaign require a decision from the campaign manager right now? Judge it against its own objective, CPA target and pacing tolerance, not against a general notion of good performance."
+      },
+      "lever": {
+        "type": "choice",
+        "instructions": "Which single lever best corrects this campaign against its objective? Onsite surfaces (sponsored display, in-app) have FINITE supply. A fill rate well below 1 means the inventory does not exist, so bidding harder and shifting more budget in will not help. Offsite supply is effectively unbounded and always costs more per outcome. Shift budget only when a line at or under target CPA still has fill headroom to absorb it. Spill to offsite when a finite-supply line cannot deliver its allocation and recovering that delivery is worth the higher cost per outcome that offsite charges. Do not spill when doing so would push blended CPA past the target, because that trades a delivery problem for a cost problem. Adjust bid when bid_vs_cpa_justified is away from 1. Read spend_at_risk_pct, not just blended CPA. A blended average at target can still conceal a third of spend running at double target on one line, and that line is the decision. Click through rate is a WEAK signal and must never justify a lever on its own. A falling CTR with sharply rising frequency is audience exhaustion, not creative wearout, and swapping the creative will not fix it. Swap creative only when CTR has fallen while frequency stayed roughly flat, which is the frequency-matched case. A discrepancy above 10 percent is a contractual reconciliation event under the IAB and 4A's Standard Terms, not an optimisation problem, so escalate rather than trying to optimise through it. Expand audience when the constraint is reachable supply rather than remaining budget. Escalate to the client as a LAST RESORT, only when every permitted lever is exhausted or would breach the target. Underfill that cannot be recovered inside the CPA target is this case, because the choice between under-delivering and accepting a worse CPA belongs to the advertiser. Choose no action when pacing is inside tolerance, blended CPA is at or under target, no line is underfilling, none has lost click through rate and none is overbidding.",
+        "criteria": {
+          "shift_budget": "Move budget between line items that are already live",
+          "spill_to_offsite": "Move allocation that a finite-supply onsite surface cannot deliver onto offsite inventory, knowingly accepting a higher cost per outcome in order to recover the delivery",
+          "adjust_bid": "Raise or lower bids on existing line items",
+          "pause_placement": "Stop delivery on an underperforming placement or line item",
+          "swap_creative": "Replace the creative currently serving",
+          "expand_audience": "Add or broaden an audience segment to increase reachable supply",
+          "escalate_to_client": "The correcting action changes total budget or campaign objective, which is the client decision and not the agency mandate",
+          "no_action": "The campaign is within tolerance and should be left alone"
+        }
+      },
+      "severity": {
+        "type": "score",
+        "instructions": "How severe is the gap between current performance and the stated objective, judged against the CPA target and the pacing tolerance?",
+        "criteria": [
+          "On plan. No deviation worth an operator looking at it",
+          "Minor drift, within tolerance, likely self correcting",
+          "Material drift. Needs attention this week",
+          "Serious. The objective is at risk without action today",
+          "Critical. Budget is actively being wasted right now"
+        ]
+      }
+    }
+  },
+  "response": {
+    "model": "typesafe/jev-1.13-20260917",
+    "answers": {
+      "gate": {
+        "type": "noul",
+        "noul": 0.18
+      },
+      "lever": {
+        "type": "choice",
+        "choice": "no_action",
+        "probabilities": {
+          "adjust_bid": 0,
+          "expand_audience": 0,
+          "pause_placement": 0,
+          "swap_creative": 0,
+          "no_action": 0.66,
+          "spill_to_offsite": 0.22,
+          "shift_budget": 0.04,
+          "escalate_to_client": 0.08
+        },
+        "confidence": 0.61
+      },
+      "severity": {
+        "type": "score",
+        "score": 0.74,
+        "legend": {
+          "0": "On plan. No deviation worth an operator looking at it",
+          "1": "Minor drift, within tolerance, likely self correcting",
+          "2": "Material drift. Needs attention this week",
+          "3": "Serious. The objective is at risk without action today",
+          "4": "Critical. Budget is actively being wasted right now"
+        },
+        "probabilities": {
+          "0": 0.27,
+          "1": 0.72,
+          "2": 0.01,
+          "3": 0,
+          "4": 0
+        },
+        "confidence": 0.77
+      }
+    },
+    "usage": {
+      "input_tokens": 2021,
+      "output_tokens": 123,
+      "cost": 0.000084882
+    },
+    "id": "gen-dec-1790388371-PHZh9ad1A9HM54AHGel6",
+    "provider": "TypeSafe"
+  }
+}

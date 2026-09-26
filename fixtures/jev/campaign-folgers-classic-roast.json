@@ -1,0 +1,186 @@
+{
+  "recordedAt": "2026-09-26T02:06:11.189Z",
+  "latencyMs": 218,
+  "request": {
+    "model": "typesafe/jev-1.13",
+    "state": {
+      "objective": "Defend share against private label in ground coffee",
+      "target_cpa_eur": 9.5,
+      "budget_eur": 560000,
+      "flight_days": 90,
+      "day": 41,
+      "days_remaining": 49,
+      "allocated_eur": 246000,
+      "delivered_eur": 239300,
+      "underfill_eur": 6700,
+      "underfill_pct": 0.027,
+      "blended_cpa_eur": 10.54,
+      "cpa_vs_target_pct": 10.9,
+      "pacing_index": 0.938,
+      "pacing_within_tolerance": true,
+      "projected_exhaustion_day": 96,
+      "dark_days_if_unchanged": 0,
+      "budget_change_permitted": false,
+      "objective_change_permitted": false,
+      "spend_at_risk_eur": 45347,
+      "spend_at_risk_pct": 0.189,
+      "lines_losing_ctr": 1,
+      "lines_above_target_cpa": 1,
+      "lines_underfilling": 0,
+      "lines_overbidding": 1,
+      "offsite_cpa_eur": 19.6,
+      "cheapest_line_cpa_eur": 7.8,
+      "attributed_sales_eur": 1044877,
+      "roas": 4.37,
+      "measurement_basis": {
+        "attributionWindowDays": 14,
+        "ntbLookbackDays": 365,
+        "impressionBasis": "viewable"
+      },
+      "max_discrepancy_pct": 11.4,
+      "discrepancy_breaches_contract": true,
+      "max_ivt_pct": 1.4,
+      "lines": [
+        {
+          "surface": "sponsored_display",
+          "surface_supply": "Finite. Bounded by retailer traffic and shelf placements",
+          "retailer": "Kroger",
+          "audience": "Coffee category browsers",
+          "allocated_eur": 96000,
+          "delivered_eur": 91200,
+          "fill_rate": 0.95,
+          "cpa_eur": 7.8,
+          "cpa_vs_target_pct": -17.9,
+          "ctr": 0.0094,
+          "bid_vs_cpa_justified": 1,
+          "ctr_change_pct": 0,
+          "frequency": 3.4,
+          "frequency_change_pct": 0,
+          "attributed_sales_eur": 537846,
+          "discrepancy_pct": 3.1,
+          "ivt_pct": 1.4,
+          "note": "Fill rate 95 percent, headroom available"
+        },
+        {
+          "surface": "in_app",
+          "surface_supply": "Finite. Bounded by app sessions",
+          "retailer": "Loblaw",
+          "audience": "PC Optimum members, coffee repertoire",
+          "allocated_eur": 62000,
+          "delivered_eur": 60100,
+          "fill_rate": 0.969,
+          "cpa_eur": 9.2,
+          "cpa_vs_target_pct": -3.2,
+          "ctr": 0.0079,
+          "bid_vs_cpa_justified": 1,
+          "ctr_change_pct": 0,
+          "frequency": 3.4,
+          "frequency_change_pct": 0,
+          "attributed_sales_eur": 300500,
+          "discrepancy_pct": 3.1,
+          "ivt_pct": 1.4
+        },
+        {
+          "surface": "offsite",
+          "surface_supply": "Effectively unbounded",
+          "audience": "Kroger audience extension",
+          "allocated_eur": 88000,
+          "delivered_eur": 88000,
+          "fill_rate": 1,
+          "cpa_eur": 19.6,
+          "cpa_vs_target_pct": 106.3,
+          "ctr": 0.0018,
+          "bid_vs_cpa_justified": 1.18,
+          "ctr_change_pct": -24,
+          "frequency": 7.8,
+          "frequency_change_pct": 41,
+          "attributed_sales_eur": 206531,
+          "discrepancy_pct": 11.4,
+          "ivt_pct": 1.4,
+          "note": "Bid 18 percent above the level its CPA justifies, and 106 percent above target CPA on a third of spend. CTR is falling but frequency is up 41 percent, so this is audience exhaustion"
+        }
+      ]
+    },
+    "questions": {
+      "gate": {
+        "type": "noul",
+        "instructions": "Does this campaign require a decision from the campaign manager right now? Judge it against its own objective, CPA target and pacing tolerance, not against a general notion of good performance."
+      },
+      "lever": {
+        "type": "choice",
+        "instructions": "Which single lever best corrects this campaign against its objective? Onsite surfaces (sponsored display, in-app) have FINITE supply. A fill rate well below 1 means the inventory does not exist, so bidding harder and shifting more budget in will not help. Offsite supply is effectively unbounded and always costs more per outcome. Shift budget only when a line at or under target CPA still has fill headroom to absorb it. Spill to offsite when a finite-supply line cannot deliver its allocation and recovering that delivery is worth the higher cost per outcome that offsite charges. Do not spill when doing so would push blended CPA past the target, because that trades a delivery problem for a cost problem. Adjust bid when bid_vs_cpa_justified is away from 1. Read spend_at_risk_pct, not just blended CPA. A blended average at target can still conceal a third of spend running at double target on one line, and that line is the decision. Click through rate is a WEAK signal and must never justify a lever on its own. A falling CTR with sharply rising frequency is audience exhaustion, not creative wearout, and swapping the creative will not fix it. Swap creative only when CTR has fallen while frequency stayed roughly flat, which is the frequency-matched case. A discrepancy above 10 percent is a contractual reconciliation event under the IAB and 4A's Standard Terms, not an optimisation problem, so escalate rather than trying to optimise through it. Expand audience when the constraint is reachable supply rather than remaining budget. Escalate to the client as a LAST RESORT, only when every permitted lever is exhausted or would breach the target. Underfill that cannot be recovered inside the CPA target is this case, because the choice between under-delivering and accepting a worse CPA belongs to the advertiser. Choose no action when pacing is inside tolerance, blended CPA is at or under target, no line is underfilling, none has lost click through rate and none is overbidding.",
+        "criteria": {
+          "shift_budget": "Move budget between line items that are already live",
+          "spill_to_offsite": "Move allocation that a finite-supply onsite surface cannot deliver onto offsite inventory, knowingly accepting a higher cost per outcome in order to recover the delivery",
+          "adjust_bid": "Raise or lower bids on existing line items",
+          "pause_placement": "Stop delivery on an underperforming placement or line item",
+          "swap_creative": "Replace the creative currently serving",
+          "expand_audience": "Add or broaden an audience segment to increase reachable supply",
+          "escalate_to_client": "The correcting action changes total budget or campaign objective, which is the client decision and not the agency mandate",
+          "no_action": "The campaign is within tolerance and should be left alone"
+        }
+      },
+      "severity": {
+        "type": "score",
+        "instructions": "How severe is the gap between current performance and the stated objective, judged against the CPA target and the pacing tolerance?",
+        "criteria": [
+          "On plan. No deviation worth an operator looking at it",
+          "Minor drift, within tolerance, likely self correcting",
+          "Material drift. Needs attention this week",
+          "Serious. The objective is at risk without action today",
+          "Critical. Budget is actively being wasted right now"
+        ]
+      }
+    }
+  },
+  "response": {
+    "model": "typesafe/jev-1.13-20260917",
+    "answers": {
+      "gate": {
+        "type": "noul",
+        "noul": 0.76
+      },
+      "lever": {
+        "type": "choice",
+        "choice": "adjust_bid",
+        "probabilities": {
+          "swap_creative": 0,
+          "expand_audience": 0,
+          "no_action": 0,
+          "shift_budget": 0.07,
+          "spill_to_offsite": 0.02,
+          "escalate_to_client": 0.32,
+          "adjust_bid": 0.57,
+          "pause_placement": 0.02
+        },
+        "confidence": 0.51
+      },
+      "severity": {
+        "type": "score",
+        "score": 2.32,
+        "legend": {
+          "0": "On plan. No deviation worth an operator looking at it",
+          "1": "Minor drift, within tolerance, likely self correcting",
+          "2": "Material drift. Needs attention this week",
+          "3": "Serious. The objective is at risk without action today",
+          "4": "Critical. Budget is actively being wasted right now"
+        },
+        "probabilities": {
+          "0": 0,
+          "1": 0.11,
+          "2": 0.55,
+          "3": 0.24,
+          "4": 0.1
+        },
+        "confidence": 0.55
+      }
+    },
+    "usage": {
+      "input_tokens": 2144,
+      "output_tokens": 123,
+      "cost": 0.000090048
+    },
+    "id": "gen-dec-1790388370-OF1rhJmjrAAYhbx65cSl",
+    "provider": "TypeSafe"
+  }
+}
